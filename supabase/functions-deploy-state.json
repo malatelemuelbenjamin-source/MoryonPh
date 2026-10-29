@@ -1,0 +1,13 @@
+{
+  "projectId": "72426487",
+  "functions": {
+    "mory-ai": {
+      "hasChanged": false,
+      "hash": "5d3ae37e89aafe7aaa9045ad7907839e7407618118d48dbac146fd5987d2ea42"
+    },
+    "weather-proxy": {
+      "hasChanged": false,
+      "hash": "14c02945eeb99454525b8b7a25f8f2ff10f2313c8cbeca7d2cce274b1bf24685"
+    }
+  }
+}
