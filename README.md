@@ -132,6 +132,7 @@ Copy `.env.example` to `.env` and fill in:
 | `SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_ANON_KEY` | Supabase anon/public key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (server only — never in frontend) |
+| `VITE_CESIUM_ION_TOKEN` | Optional. Cesium ion token for 3D globe imagery and terrain |
 
 Edge function secrets (configured via Supabase dashboard):
 - `OPENAI_API_KEY` — for Mory AI assistant
