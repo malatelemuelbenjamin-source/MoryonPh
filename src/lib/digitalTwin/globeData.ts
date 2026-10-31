@@ -1,4 +1,9 @@
-import { fetchPublishedBoundary, ISLAND_OUTLINE_KEY, type VerificationStatus } from '../geographicBoundaries'
+import {
+  fetchPublishedBoundariesByKind,
+  fetchPublishedBoundary,
+  ISLAND_OUTLINE_KEY,
+  type VerificationStatus,
+} from '../geographicBoundaries'
 import { fetchMapRoutes, fetchRouteGeometry, fetchRouteStopsForMap } from '../transportMap'
 
 export type Position = [number, number]
@@ -26,8 +31,15 @@ export interface GlobeIslandOutline {
   rings: Position[][]
 }
 
+export interface GlobeAreaBoundary {
+  key: string
+  label: string
+  rings: Position[][]
+}
+
 export interface GlobeData {
   islandOutline: GlobeIslandOutline | null
+  barangayBoundaries: GlobeAreaBoundary[]
   routes: GlobeRoute[]
 }
 
@@ -78,6 +90,14 @@ async function fetchIslandOutline(): Promise<GlobeIslandOutline | null> {
   }
 }
 
+async function fetchBarangayBoundaries(): Promise<GlobeAreaBoundary[]> {
+  const boundaries = await fetchPublishedBoundariesByKind('barangay_boundary')
+  return boundaries.flatMap((boundary) => {
+    const rings = allMultiPolygonRings(boundary.geometry_data)
+    return rings.length > 0 ? [{ key: boundary.boundary_key, label: boundary.label, rings }] : []
+  })
+}
+
 async function fetchGlobeRoutes(): Promise<GlobeRoute[]> {
   const routes = await fetchMapRoutes()
   return Promise.all(
@@ -105,12 +125,16 @@ async function fetchGlobeRoutes(): Promise<GlobeRoute[]> {
 }
 
 export async function loadGlobeData(): Promise<GlobeData> {
-  const [islandOutline, routes] = await Promise.all([
+  const [islandOutline, barangayBoundaries, routes] = await Promise.all([
     fetchIslandOutline().catch((err: Error) => {
       console.error('fetchIslandOutline error:', err.message)
       return null
     }),
+    fetchBarangayBoundaries().catch((err: Error) => {
+      console.error('fetchBarangayBoundaries error:', err.message)
+      return []
+    }),
     fetchGlobeRoutes(),
   ])
-  return { islandOutline, routes }
+  return { islandOutline, barangayBoundaries, routes }
 }
