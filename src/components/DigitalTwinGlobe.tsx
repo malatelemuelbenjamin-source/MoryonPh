@@ -1,18 +1,28 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { AlertCircle, KeyRound, Loader2, Maximize, Minimize, Minus, Plus, RefreshCw, RotateCcw } from 'lucide-react'
+import { AlertCircle, KeyRound, Loader2, Maximize, Minimize, Minus, Plus, RefreshCw, RotateCcw, SlidersHorizontal } from 'lucide-react'
 import {
+  applyMapSettings,
   createGlobeViewer,
   flyToMarinduque,
   hasWebGL,
   loadCesium,
   setSceneMode,
   zoomCamera,
+  type AppliedMapState,
   type Cesium,
   type CesiumViewer,
   type SceneMode,
 } from '../lib/digitalTwin/globeEngine'
 import { loadGlobeData, type GlobeData } from '../lib/digitalTwin/globeData'
 import { renderGlobeLayers } from '../lib/digitalTwin/globeLayers'
+import { FALLBACK_IMAGERY_ID } from '../lib/digitalTwin/mapProviders'
+import {
+  defaultMapSettings,
+  loadMapSettings,
+  resetMapSettings,
+  saveMapSettings,
+  type MapSettings,
+} from '../lib/digitalTwin/mapSettings'
 import {
   clearCesiumToken,
   describeCesiumTokenSource,
@@ -21,11 +31,14 @@ import {
   resolveCesiumToken,
   saveCesiumToken,
 } from '../lib/digitalTwin/cesiumToken'
+import { MapSettingsPanel } from './MapSettingsPanel'
 
 type GlobeStatus = 'loading' | 'ready' | 'error'
 
 const CONTROL_BUTTON =
   'grid h-10 w-10 place-items-center rounded-full bg-white/95 text-ocean-800 shadow-card transition hover:bg-white active:scale-95 disabled:opacity-50'
+
+const NO_TOKEN_NOTICE = 'Showing a basic world map. Add a Cesium token with the key button for aerial imagery and terrain.'
 
 const TOKEN_SOURCE_LABELS = {
   browser: 'Using the token saved in this browser.',
@@ -48,16 +61,21 @@ export function DigitalTwinGlobe() {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const viewerRef = useRef<CesiumViewer | null>(null)
   const cesiumRef = useRef<Cesium | null>(null)
+  const applyQueueRef = useRef<Promise<void>>(Promise.resolve())
   const [status, setStatus] = useState<GlobeStatus>('loading')
   const [attempt, setAttempt] = useState(0)
-  const [notice, setNotice] = useState<string | null>(null)
   const [sceneMode, setSceneModeState] = useState<SceneMode>('3d')
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [storedToken, setStoredToken] = useState<string | null>(getStoredCesiumToken)
+  const [mapSettings, setMapSettings] = useState<MapSettings>(() => loadMapSettings(resolveCesiumToken() !== null))
+  const [appliedMap, setAppliedMap] = useState<AppliedMapState | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [tokenPanelOpen, setTokenPanelOpen] = useState(false)
   const [tokenDraft, setTokenDraft] = useState('')
   const [tokenError, setTokenError] = useState<string | null>(null)
   const [layerSummary, setLayerSummary] = useState<string | null>(null)
+  const [tilesLoading, setTilesLoading] = useState(false)
+  const [fullscreenNotice, setFullscreenNotice] = useState<string | null>(null)
 
   useEffect(() => {
     if (!webglSupported) return
@@ -67,29 +85,22 @@ export function DigitalTwinGlobe() {
     let cancelled = false
     let viewer: CesiumViewer | null = null
     setStatus('loading')
-    setNotice(null)
     setLayerSummary(null)
 
     void (async () => {
       try {
         const Cesium = await loadCesium()
         if (cancelled) return
-        const result = await createGlobeViewer(container, Cesium, resolveCesiumToken())
-        if (cancelled) {
-          result.viewer.destroy()
-          return
-        }
-        viewer = result.viewer
+        viewer = createGlobeViewer(container, Cesium)
         viewerRef.current = viewer
         cesiumRef.current = Cesium
-        setNotice(result.notice)
+        viewer.scene.globe.tileLoadProgressEvent.addEventListener((pendingTiles: number) => {
+          setTilesLoading(pendingTiles > 0)
+        })
         flyToMarinduque(viewer, Cesium, 0)
         setStatus('ready')
-        const data = await loadGlobeData()
-        if (cancelled) return
-        renderGlobeLayers(result.viewer, Cesium, data)
-        setLayerSummary(describeGlobeLayers(data))
       } catch {
+        viewer?.destroy()
         if (!cancelled) setStatus('error')
       }
     })()
@@ -99,8 +110,56 @@ export function DigitalTwinGlobe() {
       viewer?.destroy()
       viewerRef.current = null
       cesiumRef.current = null
+      setTilesLoading(false)
     }
   }, [attempt, webglSupported])
+
+  useEffect(() => {
+    if (status !== 'ready') return
+    let cancelled = false
+
+    void (async () => {
+      try {
+        const Cesium = await loadCesium()
+        const data = await loadGlobeData()
+        const viewer = viewerRef.current
+        if (cancelled || !viewer || !cesiumRef.current) return
+        renderGlobeLayers(viewer, Cesium, data)
+        setLayerSummary(describeGlobeLayers(data))
+      } catch {
+        if (!cancelled) setLayerSummary('Commuter layers could not be loaded.')
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [status])
+
+  useEffect(() => {
+    if (status !== 'ready') return
+
+    applyQueueRef.current = applyQueueRef.current.then(async () => {
+      const viewer = viewerRef.current
+      const Cesium = cesiumRef.current
+      if (!viewer || !Cesium || viewer.isDestroyed()) return
+      try {
+        const applied = await applyMapSettings(viewer, Cesium, mapSettings, resolveCesiumToken(), (message) => {
+          setAppliedMap((previous) =>
+            previous && {
+              ...previous,
+              imageryId: FALLBACK_IMAGERY_ID,
+              imageryIsFallback: true,
+              messages: [...previous.messages, message],
+            },
+          )
+        })
+        if (!viewer.isDestroyed()) setAppliedMap(applied)
+      } catch {
+        if (!viewer.isDestroyed()) setStatus('error')
+      }
+    })
+  }, [status, mapSettings])
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -124,18 +183,35 @@ export function DigitalTwinGlobe() {
   }
 
   const handleFullscreen = async () => {
+    setFullscreenNotice(null)
     try {
       if (document.fullscreenElement) await document.exitFullscreen()
       else await wrapperRef.current?.requestFullscreen()
     } catch {
-      setNotice('Full-screen is not available on this device.')
+      setFullscreenNotice('Full-screen is not available on this device.')
     }
   }
 
+  const handleSettingsChange = (next: MapSettings) => {
+    saveMapSettings(next)
+    setMapSettings(next)
+  }
+
+  const handleSettingsReset = () => {
+    resetMapSettings()
+    setMapSettings(defaultMapSettings(resolveCesiumToken() !== null))
+  }
+
   const openTokenPanel = () => {
+    setSettingsOpen(false)
     setTokenDraft(storedToken ?? '')
     setTokenError(null)
     setTokenPanelOpen(true)
+  }
+
+  const openSettingsPanel = () => {
+    setTokenPanelOpen(false)
+    setSettingsOpen(true)
   }
 
   const handleTokenSave = (event: FormEvent) => {
@@ -147,6 +223,7 @@ export function DigitalTwinGlobe() {
     }
     saveCesiumToken(trimmed)
     setStoredToken(trimmed)
+    setMapSettings(loadMapSettings(true))
     setTokenPanelOpen(false)
     setAttempt((n) => n + 1)
   }
@@ -154,6 +231,7 @@ export function DigitalTwinGlobe() {
   const handleTokenRemove = () => {
     clearCesiumToken()
     setStoredToken(null)
+    setMapSettings(loadMapSettings(resolveCesiumToken() !== null))
     setTokenPanelOpen(false)
     setAttempt((n) => n + 1)
   }
@@ -169,6 +247,11 @@ export function DigitalTwinGlobe() {
   }
 
   const isReady = status === 'ready'
+  const hasToken = resolveCesiumToken() !== null
+  const notices = [
+    ...(hasToken ? [] : [NO_TOKEN_NOTICE]),
+    ...(appliedMap?.messages ?? []),
+  ]
 
   return (
     <div
@@ -198,26 +281,53 @@ export function DigitalTwinGlobe() {
         </div>
       )}
 
+      {isReady && tilesLoading && (
+        <p className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full bg-white/95 px-3 py-1 text-xs text-ocean-800 shadow-card">
+          Loading map detail…
+        </p>
+      )}
+
       {layerSummary && isReady && (
         <p className="absolute bottom-3 left-3 z-10 max-w-[60%] rounded-lg bg-white/95 px-3 py-2 text-xs text-ocean-800 shadow-card">
           {layerSummary}
         </p>
       )}
 
-      {notice && isReady && (
-        <p className="absolute left-3 right-14 top-3 rounded-lg bg-white/95 px-3 py-2 text-xs text-ocean-800 shadow-card">
-          {notice}
+      {(notices.length > 0 || fullscreenNotice) && isReady && (
+        <p className="absolute left-3 right-28 top-3 rounded-lg bg-white/95 px-3 py-2 text-xs text-ocean-800 shadow-card">
+          {[...notices, fullscreenNotice].filter(Boolean).join(' ')}
         </p>
       )}
 
-      <button
-        type="button"
-        aria-label="Set Cesium token"
-        className={`${CONTROL_BUTTON} absolute right-3 top-3 z-10`}
-        onClick={openTokenPanel}
-      >
-        <KeyRound size={18} />
-      </button>
+      <div className="absolute right-3 top-3 z-10 flex gap-2">
+        <button
+          type="button"
+          aria-label="Map settings"
+          className={CONTROL_BUTTON}
+          onClick={openSettingsPanel}
+        >
+          <SlidersHorizontal size={18} />
+        </button>
+        <button
+          type="button"
+          aria-label="Set Cesium token"
+          className={CONTROL_BUTTON}
+          onClick={openTokenPanel}
+        >
+          <KeyRound size={18} />
+        </button>
+      </div>
+
+      {settingsOpen && isReady && (
+        <MapSettingsPanel
+          settings={mapSettings}
+          hasToken={hasToken}
+          applied={appliedMap}
+          onChange={handleSettingsChange}
+          onReset={handleSettingsReset}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
 
       {tokenPanelOpen && (
         <form

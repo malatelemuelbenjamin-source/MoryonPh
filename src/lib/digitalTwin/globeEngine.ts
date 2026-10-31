@@ -1,9 +1,23 @@
 import type * as CesiumNamespace from 'cesium'
 import { DIGITAL_TWIN_CONFIG } from './config'
+import {
+  FALLBACK_IMAGERY_ID,
+  ION_AERIAL_ASSET_ID,
+  OPENSTREETMAP_TILE_URL,
+  canUseImagery,
+  type ImageryProviderId,
+} from './mapProviders'
+import type { MapSettings } from './mapSettings'
 
 export type Cesium = typeof CesiumNamespace
 export type CesiumViewer = CesiumNamespace.Viewer
 export type SceneMode = '3d' | '2d'
+type ImageryProviderInstance = CesiumNamespace.ImageryProvider
+type TerrainProviderInstance = CesiumNamespace.TerrainProvider
+
+const IMAGERY_FAILURE_LIMIT = 10
+const DETAIL_SCREEN_ERROR = 2
+const LOW_BANDWIDTH_SCREEN_ERROR = 4
 
 let cesiumPromise: Promise<Cesium> | null = null
 
@@ -31,17 +45,8 @@ export function hasWebGL(): boolean {
   }
 }
 
-export interface GlobeCreationResult {
-  viewer: CesiumViewer
-  notice: string | null
-}
-
-export async function createGlobeViewer(
-  container: HTMLElement,
-  Cesium: Cesium,
-  token: string | null,
-): Promise<GlobeCreationResult> {
-  const viewer = new Cesium.Viewer(container, {
+export function createGlobeViewer(container: HTMLElement, Cesium: Cesium): CesiumViewer {
+  return new Cesium.Viewer(container, {
     baseLayer: false,
     animation: false,
     timeline: false,
@@ -54,31 +59,125 @@ export async function createGlobeViewer(
     infoBox: false,
     selectionIndicator: false,
   })
+}
 
+export interface AppliedMapState {
+  imageryId: ImageryProviderId
+  imageryIsFallback: boolean
+  terrainActive: boolean
+  messages: string[]
+}
+
+async function createImageryProvider(
+  Cesium: Cesium,
+  id: ImageryProviderId,
+): Promise<ImageryProviderInstance> {
+  if (id === 'ion-aerial') {
+    return Cesium.IonImageryProvider.fromAssetId(ION_AERIAL_ASSET_ID)
+  }
+  if (id === 'openstreetmap') {
+    return new Cesium.OpenStreetMapImageryProvider({ url: OPENSTREETMAP_TILE_URL })
+  }
+  return Cesium.TileMapServiceImageryProvider.fromUrl(
+    Cesium.buildModuleUrl('Assets/Textures/NaturalEarthII'),
+  )
+}
+
+async function resolveImagery(
+  Cesium: Cesium,
+  id: ImageryProviderId,
+): Promise<{ provider: ImageryProviderInstance; id: ImageryProviderId; isFallback: boolean }> {
   try {
-    if (token) {
-      Cesium.Ion.defaultAccessToken = token
-      const imagery = await Cesium.IonImageryProvider.fromAssetId(2)
-      viewer.imageryLayers.addImageryProvider(imagery)
-      try {
-        viewer.terrainProvider = await Cesium.createWorldTerrainAsync()
-        return { viewer, notice: null }
-      } catch {
-        return { viewer, notice: 'Terrain data could not be loaded. Showing a flat globe.' }
-      }
-    }
-
-    const offlineImagery = await Cesium.TileMapServiceImageryProvider.fromUrl(
-      Cesium.buildModuleUrl('Assets/Textures/NaturalEarthII'),
-    )
-    viewer.imageryLayers.addImageryProvider(offlineImagery)
-    return {
-      viewer,
-      notice: 'Showing a basic world map. Add a Cesium token with the key button for satellite imagery and terrain.',
-    }
+    return { provider: await createImageryProvider(Cesium, id), id, isFallback: false }
   } catch (error) {
-    viewer.destroy()
-    throw error
+    if (id === FALLBACK_IMAGERY_ID) throw error
+    return {
+      provider: await createImageryProvider(Cesium, FALLBACK_IMAGERY_ID),
+      id: FALLBACK_IMAGERY_ID,
+      isFallback: true,
+    }
+  }
+}
+
+function watchImageryFailures(
+  viewer: CesiumViewer,
+  Cesium: Cesium,
+  provider: ImageryProviderInstance,
+  onFallback: (message: string) => void,
+) {
+  let failures = 0
+  let switched = false
+  provider.errorEvent.addEventListener(async () => {
+    failures += 1
+    if (switched || failures < IMAGERY_FAILURE_LIMIT || viewer.isDestroyed()) return
+    switched = true
+    viewer.imageryLayers.removeAll(true)
+    const fallback = await createImageryProvider(Cesium, FALLBACK_IMAGERY_ID)
+    if (viewer.isDestroyed()) return
+    viewer.imageryLayers.addImageryProvider(fallback)
+    onFallback('Aerial imagery stopped loading, so the basic world map is shown instead.')
+  })
+}
+
+async function resolveTerrain(
+  Cesium: Cesium,
+  enabled: boolean,
+  token: string | null,
+): Promise<{ provider: TerrainProviderInstance; active: boolean; message: string | null }> {
+  const flat = new Cesium.EllipsoidTerrainProvider()
+  if (!enabled) return { provider: flat, active: false, message: null }
+  if (!token) {
+    return { provider: flat, active: false, message: 'Terrain needs a Cesium token. The globe is shown flat.' }
+  }
+  try {
+    return { provider: await Cesium.createWorldTerrainAsync(), active: true, message: null }
+  } catch {
+    return { provider: flat, active: false, message: 'Terrain data could not be loaded. The globe is shown flat.' }
+  }
+}
+
+export async function applyMapSettings(
+  viewer: CesiumViewer,
+  Cesium: Cesium,
+  settings: MapSettings,
+  token: string | null,
+  onImageryFallback: (message: string) => void,
+): Promise<AppliedMapState> {
+  if (token) Cesium.Ion.defaultAccessToken = token
+  const messages: string[] = []
+
+  const requestedId = canUseImagery(settings.imageryId, Boolean(token)) ? settings.imageryId : FALLBACK_IMAGERY_ID
+  if (requestedId !== settings.imageryId) {
+    messages.push('Aerial imagery needs a Cesium token. The basic world map is shown instead.')
+  }
+
+  const imagery = await resolveImagery(Cesium, requestedId)
+  if (viewer.isDestroyed()) throw new Error('Globe was closed while loading.')
+  if (imagery.isFallback) {
+    messages.push('The selected imagery could not be loaded. The basic world map is shown instead.')
+  }
+  viewer.imageryLayers.removeAll(true)
+  viewer.imageryLayers.addImageryProvider(imagery.provider)
+  if (imagery.id !== FALLBACK_IMAGERY_ID) {
+    watchImageryFailures(viewer, Cesium, imagery.provider, onImageryFallback)
+  }
+
+  const terrain = await resolveTerrain(Cesium, settings.terrainEnabled, token)
+  if (viewer.isDestroyed()) throw new Error('Globe was closed while loading.')
+  if (terrain.message) messages.push(terrain.message)
+  viewer.terrainProvider = terrain.provider
+
+  viewer.scene.verticalExaggeration = settings.exaggeration
+  viewer.scene.globe.depthTestAgainstTerrain = terrain.active && settings.terrainDepthTest
+  viewer.scene.globe.maximumScreenSpaceError = settings.lowBandwidth
+    ? LOW_BANDWIDTH_SCREEN_ERROR
+    : DETAIL_SCREEN_ERROR
+
+  return {
+    imageryId: imagery.id,
+    imageryIsFallback: imagery.isFallback,
+    terrainActive: terrain.active,
+    messages,
   }
 }
 
