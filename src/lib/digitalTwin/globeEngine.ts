@@ -36,7 +36,11 @@ export interface GlobeCreationResult {
   notice: string | null
 }
 
-export async function createGlobeViewer(container: HTMLElement, Cesium: Cesium): Promise<GlobeCreationResult> {
+export async function createGlobeViewer(
+  container: HTMLElement,
+  Cesium: Cesium,
+  token: string | null,
+): Promise<GlobeCreationResult> {
   const viewer = new Cesium.Viewer(container, {
     baseLayer: false,
     animation: false,
@@ -52,7 +56,6 @@ export async function createGlobeViewer(container: HTMLElement, Cesium: Cesium):
   })
 
   try {
-    const token = DIGITAL_TWIN_CONFIG.cesiumIonToken
     if (token) {
       Cesium.Ion.defaultAccessToken = token
       const imagery = await Cesium.IonImageryProvider.fromAssetId(2)
@@ -71,7 +74,7 @@ export async function createGlobeViewer(container: HTMLElement, Cesium: Cesium):
     viewer.imageryLayers.addImageryProvider(offlineImagery)
     return {
       viewer,
-      notice: 'Showing a basic world map. Add a Cesium ion token for satellite imagery and terrain.',
+      notice: 'Showing a basic world map. Add a Cesium token with the key button for satellite imagery and terrain.',
     }
   } catch (error) {
     viewer.destroy()

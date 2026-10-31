@@ -42,7 +42,7 @@ A commuter and travel application for Marinduque, Philippines — covering all s
 | 25 | Trip History & Journey Records | Implemented |
 | 26 | Driver & Transport Operator Portal | Implemented |
 | 27 | Admin Dashboard & Management | Implemented |
-| 28 | Data Verification & Quality Control | Implemented |
+| 28 | Data Verification & Quality Control | Partial (dashboard and review queue exist; summary RPC, server-side pagination, atomic reviews, filters, export, and tests are pending) |
 | 29 | Tourist Trip Planner | Implemented |
 | 30 | Total Trip Cost Calculator | Implemented |
 | 31 | Share Trip & Journey Details | Implemented |
