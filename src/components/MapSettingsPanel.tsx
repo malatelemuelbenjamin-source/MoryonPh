@@ -125,16 +125,6 @@ export function MapSettingsPanel({ settings, hasToken, applied, onChange, onRese
         />
       </div>
 
-      <div className="space-y-3">
-        <p className={SECTION_LABEL}>Overlays</p>
-        <ToggleRow
-          label="Show island outline"
-          hint="Dashed while the dataset is unverified"
-          pressed={settings.showIslandOutline}
-          onToggle={() => onChange({ ...settings, showIslandOutline: !settings.showIslandOutline })}
-        />
-      </div>
-
       <div className="space-y-2 rounded-lg bg-ocean-50 p-3 text-[11px] leading-relaxed text-ocean-800">
         <p className={SECTION_LABEL}>Currently showing</p>
         {applied ? (

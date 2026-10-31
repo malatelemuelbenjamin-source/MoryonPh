@@ -11,7 +11,6 @@ export interface MapSettings {
   exaggeration: number
   terrainDepthTest: boolean
   lowBandwidth: boolean
-  showIslandOutline: boolean
 }
 
 const STORAGE_KEY = 'moryongo.mapSettings'
@@ -23,7 +22,6 @@ export function defaultMapSettings(hasToken: boolean): MapSettings {
     exaggeration: 1,
     terrainDepthTest: true,
     lowBandwidth: false,
-    showIslandOutline: true,
   }
 }
 
@@ -47,7 +45,6 @@ export function loadMapSettings(hasToken: boolean): MapSettings {
       exaggeration: isExaggeration(saved.exaggeration) ? saved.exaggeration : defaults.exaggeration,
       terrainDepthTest: typeof saved.terrainDepthTest === 'boolean' ? saved.terrainDepthTest : defaults.terrainDepthTest,
       lowBandwidth: typeof saved.lowBandwidth === 'boolean' ? saved.lowBandwidth : defaults.lowBandwidth,
-      showIslandOutline: typeof saved.showIslandOutline === 'boolean' ? saved.showIslandOutline : defaults.showIslandOutline,
     }
   } catch {
     return defaults

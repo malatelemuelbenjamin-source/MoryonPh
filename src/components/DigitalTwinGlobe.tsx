@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { AlertCircle, KeyRound, Loader2, Maximize, Minimize, Minus, Plus, RefreshCw, RotateCcw, SlidersHorizontal } from 'lucide-react'
+import { AlertCircle, KeyRound, Layers, Loader2, Maximize, Minimize, Minus, Plus, RefreshCw, RotateCcw, SlidersHorizontal } from 'lucide-react'
 import {
   applyMapSettings,
   createGlobeViewer,
@@ -15,11 +15,16 @@ import {
   type SceneMode,
 } from '../lib/digitalTwin/globeEngine'
 import { loadGlobeData, type GlobeData } from '../lib/digitalTwin/globeData'
+import { applyLayerVisibility, renderGlobeLayers, renderMunicipalityBoundaries } from '../lib/digitalTwin/globeLayers'
 import {
-  renderGlobeLayers,
-  renderMunicipalityBoundaries,
-  setIslandOutlineVisible,
-} from '../lib/digitalTwin/globeLayers'
+  buildLayerAvailability,
+  defaultLayerPreferences,
+  loadLayerPreferences,
+  resetLayerPreferences,
+  saveLayerPreferences,
+  type LayerPreferences,
+  type MapLayerId,
+} from '../lib/digitalTwin/mapLayers'
 import { FALLBACK_IMAGERY_ID } from '../lib/digitalTwin/mapProviders'
 import {
   defaultMapSettings,
@@ -37,6 +42,8 @@ import {
   saveCesiumToken,
 } from '../lib/digitalTwin/cesiumToken'
 import { loadMunicipalityDirectory, type MunicipalityEntry } from '../lib/municipalities'
+import { MapLayerLegend } from './MapLayerLegend'
+import { MapLayerPanel } from './MapLayerPanel'
 import { MapSettingsPanel } from './MapSettingsPanel'
 import { MunicipalityExplorer } from './MunicipalityExplorer'
 
@@ -52,15 +59,6 @@ const TOKEN_SOURCE_LABELS = {
   project: 'Using the token set for this project.',
   none: 'No token set. The basic world map is shown.',
 } as const
-
-function describeGlobeLayers(data: GlobeData): string {
-  const island = data.islandOutline
-    ? `Island outline ${data.islandOutline.verificationStatus === 'verified' ? '(verified)' : '(unverified dataset)'}`
-    : 'No island outline published yet'
-  const routes = data.routes.filter((route) => route.path.length >= 2).length
-  const routeText = routes > 0 ? `${routes} commuter routes` : 'No commuter routes are published yet'
-  return `${island} · ${routeText}`
-}
 
 export function DigitalTwinGlobe() {
   const [webglSupported] = useState(hasWebGL)
@@ -80,7 +78,11 @@ export function DigitalTwinGlobe() {
   const [tokenPanelOpen, setTokenPanelOpen] = useState(false)
   const [tokenDraft, setTokenDraft] = useState('')
   const [tokenError, setTokenError] = useState<string | null>(null)
-  const [layerSummary, setLayerSummary] = useState<string | null>(null)
+  const [globeData, setGlobeData] = useState<GlobeData | null>(null)
+  const [layerError, setLayerError] = useState<string | null>(null)
+  const [layerAttempt, setLayerAttempt] = useState(0)
+  const [layerPreferences, setLayerPreferences] = useState<LayerPreferences>(loadLayerPreferences)
+  const [layersOpen, setLayersOpen] = useState(true)
   const [layersReady, setLayersReady] = useState(false)
   const [tilesLoading, setTilesLoading] = useState(false)
   const [fullscreenNotice, setFullscreenNotice] = useState<string | null>(null)
@@ -96,7 +98,6 @@ export function DigitalTwinGlobe() {
     let cancelled = false
     let viewer: CesiumViewer | null = null
     setStatus('loading')
-    setLayerSummary(null)
 
     void (async () => {
       try {
@@ -129,6 +130,7 @@ export function DigitalTwinGlobe() {
     if (status !== 'ready') return
     let cancelled = false
     setLayersReady(false)
+    setLayerError(null)
 
     void (async () => {
       try {
@@ -137,23 +139,17 @@ export function DigitalTwinGlobe() {
         const viewer = viewerRef.current
         if (cancelled || !viewer || !cesiumRef.current) return
         renderGlobeLayers(viewer, Cesium, data)
-        setLayerSummary(describeGlobeLayers(data))
+        setGlobeData(data)
         setLayersReady(true)
       } catch {
-        if (!cancelled) setLayerSummary('Commuter layers could not be loaded.')
+        if (!cancelled) setLayerError('Map layers could not be loaded. Try again.')
       }
     })()
 
     return () => {
       cancelled = true
     }
-  }, [status])
-
-  useEffect(() => {
-    const viewer = viewerRef.current
-    if (!layersReady || !viewer) return
-    setIslandOutlineVisible(viewer, mapSettings.showIslandOutline)
-  }, [layersReady, mapSettings.showIslandOutline])
+  }, [status, layerAttempt])
 
   useEffect(() => {
     let cancelled = false
@@ -179,6 +175,12 @@ export function DigitalTwinGlobe() {
     if (!layersReady || !viewer || !Cesium || !municipalities) return
     renderMunicipalityBoundaries(viewer, Cesium, municipalities, selectedMunicipalityId)
   }, [layersReady, municipalities, selectedMunicipalityId])
+
+  useEffect(() => {
+    const viewer = viewerRef.current
+    if (!layersReady || !viewer) return
+    applyLayerVisibility(viewer, layerPreferences)
+  }, [layersReady, layerPreferences, municipalities, selectedMunicipalityId])
 
   useEffect(() => {
     if (status !== 'ready') return
@@ -261,6 +263,23 @@ export function DigitalTwinGlobe() {
     setMapSettings(defaultMapSettings(resolveCesiumToken() !== null))
   }
 
+  const handleLayerToggle = (id: MapLayerId, visible: boolean) => {
+    const next = { ...layerPreferences, [id]: visible }
+    saveLayerPreferences(next)
+    setLayerPreferences(next)
+  }
+
+  const handleLayersShowAll = () => {
+    const next = Object.fromEntries(Object.keys(layerPreferences).map((id) => [id, true])) as LayerPreferences
+    saveLayerPreferences(next)
+    setLayerPreferences(next)
+  }
+
+  const handleLayersReset = () => {
+    resetLayerPreferences()
+    setLayerPreferences(defaultLayerPreferences())
+  }
+
   const openTokenPanel = () => {
     setSettingsOpen(false)
     setTokenDraft(storedToken ?? '')
@@ -310,6 +329,7 @@ export function DigitalTwinGlobe() {
 
   const isReady = status === 'ready'
   const hasToken = resolveCesiumToken() !== null
+  const availability = layersReady && globeData ? buildLayerAvailability(globeData, municipalities ?? []) : null
   const notices = [
     ...(hasToken ? [] : [NO_TOKEN_NOTICE]),
     ...(appliedMap?.messages ?? []),
@@ -350,10 +370,8 @@ export function DigitalTwinGlobe() {
         </p>
       )}
 
-      {layerSummary && isReady && (
-        <p className="absolute bottom-3 left-3 z-10 max-w-[60%] rounded-lg bg-white/95 px-3 py-2 text-xs text-ocean-800 shadow-card">
-          {layerSummary}
-        </p>
+      {isReady && availability && (
+        <MapLayerLegend availability={availability} preferences={layerPreferences} />
       )}
 
       {(notices.length > 0 || fullscreenNotice) && isReady && (
@@ -363,6 +381,17 @@ export function DigitalTwinGlobe() {
       )}
 
       <div className="absolute right-3 top-3 z-10 flex gap-2">
+        {isReady && (
+          <button
+            type="button"
+            aria-label="Show map layers"
+            aria-pressed={layersOpen}
+            className={CONTROL_BUTTON}
+            onClick={() => setLayersOpen((open) => !open)}
+          >
+            <Layers size={18} />
+          </button>
+        )}
         <button
           type="button"
           aria-label="Map settings"
@@ -389,6 +418,22 @@ export function DigitalTwinGlobe() {
           onChange={handleSettingsChange}
           onReset={handleSettingsReset}
           onClose={() => setSettingsOpen(false)}
+        />
+      )}
+
+      {isReady && layersOpen && (
+        <MapLayerPanel
+          availability={availability}
+          statusMessage={layerError ?? 'Loading map layers…'}
+          preferences={layerPreferences}
+          onToggle={handleLayerToggle}
+          onShowAll={handleLayersShowAll}
+          onResetDefaults={handleLayersReset}
+          onRetry={() => {
+            setLayerError(null)
+            setLayerAttempt((n) => n + 1)
+          }}
+          onClose={() => setLayersOpen(false)}
         />
       )}
 

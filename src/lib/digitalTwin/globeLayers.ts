@@ -1,15 +1,9 @@
 import type { MunicipalityEntry } from '../municipalities'
-import type { GlobeAreaBoundary, GlobeData, GlobeIslandOutline, Position } from './globeData'
+import type { GlobeAreaBoundary, GlobeData, GlobeIslandOutline, GlobeRoute, Position } from './globeData'
+import { LAYER_COLOR, MAP_LAYER_IDS, type LayerPreferences } from './mapLayers'
 import type { Cesium, CesiumViewer } from './globeEngine'
 
-const MUNICIPALITY_COLOR = '#38bdf8'
 const SELECTED_MUNICIPALITY_COLOR = '#34d399'
-const ROUTE_COLOR = '#f59e0b'
-const ISLAND_COLOR = '#fde047'
-const ISLAND_SOURCE_NAME = 'island-outline'
-const BARANGAY_SOURCE_NAME = 'barangay-boundaries'
-const BARANGAY_COLOR = '#a3e635'
-const MUNICIPALITY_SOURCE_NAME = 'municipality-boundaries'
 
 function centroid(rings: Position[][]): Position {
   const points = rings.flat()
@@ -17,17 +11,23 @@ function centroid(rings: Position[][]): Position {
   return [sum[0] / points.length, sum[1] / points.length]
 }
 
-function renderIslandOutline(viewer: CesiumViewer, Cesium: Cesium, outline: GlobeIslandOutline | null) {
-  for (const existing of viewer.dataSources.getByName(ISLAND_SOURCE_NAME)) {
+function replaceSource(viewer: CesiumViewer, Cesium: Cesium, name: string) {
+  for (const existing of viewer.dataSources.getByName(name)) {
     viewer.dataSources.remove(existing, true)
   }
+  const source = new Cesium.CustomDataSource(name)
+  viewer.dataSources.add(source)
+  return source
+}
+
+function renderIslandOutline(viewer: CesiumViewer, Cesium: Cesium, outline: GlobeIslandOutline | null) {
+  const source = replaceSource(viewer, Cesium, 'island-outline')
   if (!outline) return
 
-  const color = Cesium.Color.fromCssColorString(ISLAND_COLOR)
+  const color = Cesium.Color.fromCssColorString(LAYER_COLOR['island-outline'])
   const material = outline.verificationStatus === 'verified'
     ? color
     : new Cesium.PolylineDashMaterialProperty({ color, dashLength: 16 })
-  const source = new Cesium.CustomDataSource(ISLAND_SOURCE_NAME)
   for (const ring of outline.rings) {
     source.entities.add({
       name: outline.label,
@@ -39,13 +39,6 @@ function renderIslandOutline(viewer: CesiumViewer, Cesium: Cesium, outline: Glob
       },
     })
   }
-  viewer.dataSources.add(source)
-}
-
-export function setIslandOutlineVisible(viewer: CesiumViewer, visible: boolean) {
-  for (const source of viewer.dataSources.getByName(ISLAND_SOURCE_NAME)) {
-    source.show = visible
-  }
 }
 
 export function renderMunicipalityBoundaries(
@@ -54,15 +47,13 @@ export function renderMunicipalityBoundaries(
   entries: MunicipalityEntry[],
   selectedId: string | null,
 ) {
-  for (const existing of viewer.dataSources.getByName(MUNICIPALITY_SOURCE_NAME)) {
-    viewer.dataSources.remove(existing, true)
-  }
-  const source = new Cesium.CustomDataSource(MUNICIPALITY_SOURCE_NAME)
+  const source = replaceSource(viewer, Cesium, 'municipal-boundaries')
+  const baseFill = Cesium.Color.fromCssColorString(LAYER_COLOR['municipal-boundaries'])
 
   for (const { record, boundary } of entries) {
     if (!boundary) continue
     const selected = record.id === selectedId
-    const fill = Cesium.Color.fromCssColorString(selected ? SELECTED_MUNICIPALITY_COLOR : MUNICIPALITY_COLOR)
+    const fill = selected ? Cesium.Color.fromCssColorString(SELECTED_MUNICIPALITY_COLOR) : baseFill
     for (const ring of boundary.rings) {
       source.entities.add({
         name: record.name,
@@ -91,15 +82,11 @@ export function renderMunicipalityBoundaries(
       })
     }
   }
-  viewer.dataSources.add(source)
 }
 
-export function renderBarangayBoundaries(viewer: CesiumViewer, Cesium: Cesium, boundaries: GlobeAreaBoundary[]) {
-  for (const existing of viewer.dataSources.getByName(BARANGAY_SOURCE_NAME)) {
-    viewer.dataSources.remove(existing, true)
-  }
-  const source = new Cesium.CustomDataSource(BARANGAY_SOURCE_NAME)
-  const fill = Cesium.Color.fromCssColorString(BARANGAY_COLOR)
+function renderBarangayBoundaries(viewer: CesiumViewer, Cesium: Cesium, boundaries: GlobeAreaBoundary[]) {
+  const source = replaceSource(viewer, Cesium, 'barangay-boundaries')
+  const fill = Cesium.Color.fromCssColorString(LAYER_COLOR['barangay-boundaries'])
   for (const boundary of boundaries) {
     for (const ring of boundary.rings) {
       source.entities.add({
@@ -114,18 +101,14 @@ export function renderBarangayBoundaries(viewer: CesiumViewer, Cesium: Cesium, b
       })
     }
   }
-  viewer.dataSources.add(source)
 }
 
-export function renderGlobeLayers(viewer: CesiumViewer, Cesium: Cesium, data: GlobeData) {
-  viewer.entities.removeAll()
-  renderIslandOutline(viewer, Cesium, data.islandOutline)
-  renderBarangayBoundaries(viewer, Cesium, data.barangayBoundaries)
-
-  const routeColor = Cesium.Color.fromCssColorString(ROUTE_COLOR)
-  for (const route of data.routes) {
+function renderCommuterRoutes(viewer: CesiumViewer, Cesium: Cesium, routes: GlobeRoute[]) {
+  const source = replaceSource(viewer, Cesium, 'commuter-routes')
+  const routeColor = Cesium.Color.fromCssColorString(LAYER_COLOR['commuter-routes'])
+  for (const route of routes) {
     if (route.path.length >= 2) {
-      viewer.entities.add({
+      source.entities.add({
         name: route.name,
         polyline: {
           positions: Cesium.Cartesian3.fromDegreesArray(route.path.flat()),
@@ -136,7 +119,7 @@ export function renderGlobeLayers(viewer: CesiumViewer, Cesium: Cesium, data: Gl
       })
     }
     for (const stop of route.stops) {
-      viewer.entities.add({
+      source.entities.add({
         name: stop.name,
         position: Cesium.Cartesian3.fromDegrees(stop.longitude, stop.latitude),
         point: {
@@ -146,6 +129,20 @@ export function renderGlobeLayers(viewer: CesiumViewer, Cesium: Cesium, data: Gl
           outlineWidth: 2,
         },
       })
+    }
+  }
+}
+
+export function renderGlobeLayers(viewer: CesiumViewer, Cesium: Cesium, data: GlobeData) {
+  renderIslandOutline(viewer, Cesium, data.islandOutline)
+  renderBarangayBoundaries(viewer, Cesium, data.barangayBoundaries)
+  renderCommuterRoutes(viewer, Cesium, data.routes)
+}
+
+export function applyLayerVisibility(viewer: CesiumViewer, preferences: LayerPreferences) {
+  for (const id of MAP_LAYER_IDS) {
+    for (const source of viewer.dataSources.getByName(id)) {
+      source.show = preferences[id]
     }
   }
 }
