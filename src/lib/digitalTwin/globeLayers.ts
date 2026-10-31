@@ -1,8 +1,10 @@
-import type { GlobeData, Position } from './globeData'
+import type { GlobeData, GlobeIslandOutline, Position } from './globeData'
 import type { Cesium, CesiumViewer } from './globeEngine'
 
 const BOUNDARY_COLOR = '#38bdf8'
 const ROUTE_COLOR = '#f59e0b'
+const ISLAND_COLOR = '#fde047'
+const ISLAND_SOURCE_NAME = 'island-outline'
 
 function centroid(rings: Position[][]): Position {
   const points = rings.flat()
@@ -10,8 +12,40 @@ function centroid(rings: Position[][]): Position {
   return [sum[0] / points.length, sum[1] / points.length]
 }
 
+function renderIslandOutline(viewer: CesiumViewer, Cesium: Cesium, outline: GlobeIslandOutline | null) {
+  for (const existing of viewer.dataSources.getByName(ISLAND_SOURCE_NAME)) {
+    viewer.dataSources.remove(existing, true)
+  }
+  if (!outline) return
+
+  const color = Cesium.Color.fromCssColorString(ISLAND_COLOR)
+  const material = outline.verificationStatus === 'verified'
+    ? color
+    : new Cesium.PolylineDashMaterialProperty({ color, dashLength: 16 })
+  const source = new Cesium.CustomDataSource(ISLAND_SOURCE_NAME)
+  for (const ring of outline.rings) {
+    source.entities.add({
+      name: outline.label,
+      polyline: {
+        positions: Cesium.Cartesian3.fromDegreesArray(ring.flat()),
+        width: 2.5,
+        material,
+        clampToGround: true,
+      },
+    })
+  }
+  viewer.dataSources.add(source)
+}
+
+export function setIslandOutlineVisible(viewer: CesiumViewer, visible: boolean) {
+  for (const source of viewer.dataSources.getByName(ISLAND_SOURCE_NAME)) {
+    source.show = visible
+  }
+}
+
 export function renderGlobeLayers(viewer: CesiumViewer, Cesium: Cesium, data: GlobeData) {
   viewer.entities.removeAll()
+  renderIslandOutline(viewer, Cesium, data.islandOutline)
 
   const boundaryFill = Cesium.Color.fromCssColorString(BOUNDARY_COLOR)
   for (const boundary of data.boundaries ?? []) {

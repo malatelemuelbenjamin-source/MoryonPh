@@ -1,4 +1,5 @@
 import { supabase } from '../supabase'
+import { fetchPublishedBoundary, ISLAND_OUTLINE_KEY, type VerificationStatus } from '../geographicBoundaries'
 import { fetchMapRoutes, fetchRouteGeometry, fetchRouteStopsForMap } from '../transportMap'
 
 export type Position = [number, number]
@@ -25,8 +26,16 @@ export interface GlobeBoundary {
   rings: Position[][]
 }
 
+export interface GlobeIslandOutline {
+  label: string
+  verificationStatus: VerificationStatus
+  sourceName: string
+  rings: Position[][]
+}
+
 export interface GlobeData {
   boundaries: GlobeBoundary[] | null
+  islandOutline: GlobeIslandOutline | null
   routes: GlobeRoute[]
 }
 
@@ -61,6 +70,30 @@ function polygonRings(data: unknown): Position[][] {
     const outer = polygon[0] as unknown[]
     return outer.every(isPosition) && outer.length >= 4 ? [outer as Position[]] : []
   })
+}
+
+function allMultiPolygonRings(data: unknown): Position[][] {
+  const geom = unwrapGeometry(data)
+  if (!geom || geom.type !== 'MultiPolygon' || !Array.isArray(geom.coordinates)) return []
+  return geom.coordinates.flatMap((polygon: unknown) => {
+    if (!Array.isArray(polygon)) return []
+    return polygon.flatMap((ring: unknown) =>
+      Array.isArray(ring) && ring.length >= 4 && ring.every(isPosition) ? [ring as Position[]] : [],
+    )
+  })
+}
+
+async function fetchIslandOutline(): Promise<GlobeIslandOutline | null> {
+  const boundary = await fetchPublishedBoundary(ISLAND_OUTLINE_KEY)
+  if (!boundary) return null
+  const rings = allMultiPolygonRings(boundary.geometry_data)
+  if (rings.length === 0) return null
+  return {
+    label: boundary.label,
+    verificationStatus: boundary.verification_status,
+    sourceName: boundary.source?.name ?? 'Unknown source',
+    rings,
+  }
 }
 
 async function fetchGlobeRoutes(): Promise<GlobeRoute[]> {
@@ -106,12 +139,16 @@ async function fetchMunicipalityBoundaries(): Promise<GlobeBoundary[]> {
 }
 
 export async function loadGlobeData(): Promise<GlobeData> {
-  const [boundaries, routes] = await Promise.all([
+  const [boundaries, islandOutline, routes] = await Promise.all([
     fetchMunicipalityBoundaries().catch((err: Error) => {
       console.error('fetchMunicipalityBoundaries error:', err.message)
       return null
     }),
+    fetchIslandOutline().catch((err: Error) => {
+      console.error('fetchIslandOutline error:', err.message)
+      return null
+    }),
     fetchGlobeRoutes(),
   ])
-  return { boundaries, routes }
+  return { boundaries, islandOutline, routes }
 }

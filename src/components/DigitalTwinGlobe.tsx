@@ -14,7 +14,7 @@ import {
   type SceneMode,
 } from '../lib/digitalTwin/globeEngine'
 import { loadGlobeData, type GlobeData } from '../lib/digitalTwin/globeData'
-import { renderGlobeLayers } from '../lib/digitalTwin/globeLayers'
+import { renderGlobeLayers, setIslandOutlineVisible } from '../lib/digitalTwin/globeLayers'
 import { FALLBACK_IMAGERY_ID } from '../lib/digitalTwin/mapProviders'
 import {
   defaultMapSettings,
@@ -50,9 +50,12 @@ function describeGlobeLayers(data: GlobeData): string {
   const outlines = data.boundaries
     ? `${data.boundaries.length} municipality outlines`
     : 'Municipality outlines could not be loaded'
+  const island = data.islandOutline
+    ? `Island outline ${data.islandOutline.verificationStatus === 'verified' ? '(verified)' : '(unverified dataset)'}`
+    : 'No island outline published yet'
   const routes = data.routes.filter((route) => route.path.length >= 2).length
   const routeText = routes > 0 ? `${routes} commuter routes` : 'No commuter routes are published yet'
-  return `${outlines} · ${routeText}`
+  return `${outlines} · ${island} · ${routeText}`
 }
 
 export function DigitalTwinGlobe() {
@@ -74,6 +77,7 @@ export function DigitalTwinGlobe() {
   const [tokenDraft, setTokenDraft] = useState('')
   const [tokenError, setTokenError] = useState<string | null>(null)
   const [layerSummary, setLayerSummary] = useState<string | null>(null)
+  const [layersReady, setLayersReady] = useState(false)
   const [tilesLoading, setTilesLoading] = useState(false)
   const [fullscreenNotice, setFullscreenNotice] = useState<string | null>(null)
 
@@ -117,6 +121,7 @@ export function DigitalTwinGlobe() {
   useEffect(() => {
     if (status !== 'ready') return
     let cancelled = false
+    setLayersReady(false)
 
     void (async () => {
       try {
@@ -126,6 +131,7 @@ export function DigitalTwinGlobe() {
         if (cancelled || !viewer || !cesiumRef.current) return
         renderGlobeLayers(viewer, Cesium, data)
         setLayerSummary(describeGlobeLayers(data))
+        setLayersReady(true)
       } catch {
         if (!cancelled) setLayerSummary('Commuter layers could not be loaded.')
       }
@@ -135,6 +141,12 @@ export function DigitalTwinGlobe() {
       cancelled = true
     }
   }, [status])
+
+  useEffect(() => {
+    const viewer = viewerRef.current
+    if (!layersReady || !viewer) return
+    setIslandOutlineVisible(viewer, mapSettings.showIslandOutline)
+  }, [layersReady, mapSettings.showIslandOutline])
 
   useEffect(() => {
     if (status !== 'ready') return

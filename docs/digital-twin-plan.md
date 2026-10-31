@@ -48,9 +48,11 @@
 - `src/lib/digitalTwin/config.ts` (configuration only; no data)
 - `src/vite-env.d.ts`, `.env.example`, `README.md`
 - Prompt 3: `src/lib/digitalTwin/mapProviders.ts`, `src/lib/digitalTwin/mapSettings.ts`, `src/lib/digitalTwin/globeEngine.ts`, `src/components/MapSettingsPanel.tsx`, `src/components/DigitalTwinGlobe.tsx`
+- Prompt 4: `src/lib/geoJsonValidation.ts`, `src/lib/geographicBoundaries.ts`, `src/lib/digitalTwin/globeData.ts`, `src/lib/digitalTwin/globeLayers.ts`, `src/components/GeographicImportForm.tsx`, `src/components/GeographicBoundaryDetail.tsx`, `src/pages/AdminGeographicBoundariesPage.tsx`
 
 ## 9. Implementation stages
 1. Stage 2 (implemented as a 3D Globe option on the transport map page): lazy-loaded globe with loading, error and retry states, zoom, reset, 2D/3D toggle, full screen, a Cesium token panel, Marinduque municipality outlines, and commuter routes and stops read from the database. Routes show an empty state until route data is published.
+1b. Stage 2c (Digital Twin Prompt 4): Marinduque island outline stored as versioned GeoJSON in the database. Admins import a file at `/admin/geographic-boundaries`, which validates it, shows a preview, and keeps it as a draft until a source is verified and the version is published. Only published, verified-or-first-published data is shown on the globe behind an island outline toggle, dashed when unverified. The seeded Marinduque row is an unpublished municipal union, not a verified island coastline, so no island outline is shown until a real dataset is published.
 1a. Stage 2b (Digital Twin Prompt 3): real terrain and aerial imagery through a provider catalogue, a map settings panel, attribution and coverage notes, and fallbacks to the basic map. The globe has not been tested in a browser.
 2. Stage 3: Barangay boundaries, verified-only layer filtering, and admin tools for boundary data.
 3. Stage 4: 3D buildings and 3D Tiles from approved sources.
