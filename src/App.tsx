@@ -35,6 +35,7 @@ import { TransportAlertsPage } from './pages/TransportAlertsPage'
 import { TransportAlertDetailPage } from './pages/TransportAlertDetailPage'
 import { AdminTransportAlertsPage } from './pages/AdminTransportAlertsPage'
 import { AdminGeographicBoundariesPage } from './pages/AdminGeographicBoundariesPage'
+import { AdminMunicipalitiesPage } from './pages/AdminMunicipalitiesPage'
 import { ExploreMarinduquePage } from './pages/ExploreMarinduquePage'
 import { DestinationDetailPage } from './pages/DestinationDetailPage'
 import { ExploreMunicipalityPage } from './pages/ExploreMunicipalityPage'
@@ -141,6 +142,7 @@ export default function App() {
         <Route path="/admin" element={<AdminDashboardPage />} />
         <Route path="/admin/audit-logs" element={<AdminAuditLogsPage />} />
         <Route path="/admin/geographic-boundaries" element={<AdminGeographicBoundariesPage />} />
+        <Route path="/admin/municipalities" element={<AdminMunicipalitiesPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/admin/verification" element={<DataVerificationDashboardPage />} />
         <Route path="/tourist-planner" element={<TouristPlannerPage />} />

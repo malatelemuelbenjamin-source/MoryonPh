@@ -45,6 +45,7 @@ export const ADMIN_MODULES: ModuleLink[] = [
   { to: '/admin/fares', label: 'Fare Management', description: 'Fares, rules, discounts, updates', icon: 'fare', metricKey: 'publishedFares' },
   { to: '/admin/fare-matrix', label: 'Fare Matrices', description: 'Fare matrix entries and publication', icon: 'matrix' },
   { to: '/admin/locations', label: 'Locations & Municipalities', description: 'Towns, terminals, ports, landmarks', icon: 'map' },
+  { to: '/admin/municipalities', label: 'Municipality Explorer', description: 'Six municipality details and verified boundaries', icon: 'map' },
   { to: '/admin/tricycle', label: 'Tricycle Service Areas', description: 'Zones, fare zones, connections', icon: 'tricycle' },
   { to: '/admin/ports', label: 'Ports & Sea Transport', description: 'Ferry, RORO, boat schedules', icon: 'port' },
   { to: '/operator-portal/admin', label: 'Operator Submissions', description: 'Review operator applications & service changes', icon: 'operator', metricKey: 'pendingOperatorSubmissions' },

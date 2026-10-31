@@ -40,7 +40,7 @@ export function GeographicBoundaryDetail({
 
   const isDraft = boundary.status === 'draft'
   const canReview = isDraft && boundary.verification_status === 'unverified'
-  const canPublish = isDraft && boundary.verification_status !== 'rejected'
+  const canPublish = isDraft && boundary.verification_status === 'verified'
   const canArchive = boundary.status !== 'archived'
   const source = boundary.source
 
@@ -166,7 +166,7 @@ export function GeographicBoundaryDetail({
         <div className="flex flex-col gap-2 border-t border-ocean-100 pt-4">
           <h3 className="text-sm font-bold text-ocean-900">Publish to the globe</h3>
           <p className="text-sm text-ocean-700">
-            Publishing replaces the currently shown version. Unverified datasets can only be published when no version is shown yet.
+            Publishing replaces the version currently shown. Only verified versions can be published.
           </p>
           <div className="flex justify-end">
             <button

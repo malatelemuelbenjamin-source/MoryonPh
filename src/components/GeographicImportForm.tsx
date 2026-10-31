@@ -2,6 +2,7 @@ import { useState, type ChangeEvent, type FormEvent } from 'react'
 import { AlertTriangle, CheckCircle2, Upload } from 'lucide-react'
 import { importBoundary } from '../lib/geographicBoundaries'
 import { validateBoundaryGeoJson, type ValidatedBoundary } from '../lib/geoJsonValidation'
+import { GeometryPreview } from './GeometryPreview'
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024
 const KEY_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/
@@ -10,6 +11,12 @@ const KIND_OPTIONS = [
   { value: 'island_outline', label: 'Island coastline' },
   { value: 'municipal_boundary', label: 'Municipal boundaries' },
 ] as const
+
+export interface FixedDataset {
+  boundaryKey: string
+  label: string
+  kind: string
+}
 
 interface SourceFields {
   name: string
@@ -36,7 +43,13 @@ interface PreparedFile {
   validated: ValidatedBoundary
 }
 
-export function GeographicImportForm({ onImported }: { onImported: () => void }) {
+export function GeographicImportForm({
+  onImported,
+  fixedDataset,
+}: {
+  onImported: () => void
+  fixedDataset?: FixedDataset
+}) {
   const [boundaryKey, setBoundaryKey] = useState('')
   const [label, setLabel] = useState('')
   const [kind, setKind] = useState<string>(KIND_OPTIONS[0].value)
@@ -83,12 +96,13 @@ export function GeographicImportForm({ onImported }: { onImported: () => void })
     setFormError(null)
     setSuccess(null)
 
-    const key = boundaryKey.trim()
-    if (!KEY_PATTERN.test(key)) {
+    const key = fixedDataset ? fixedDataset.boundaryKey : boundaryKey.trim()
+    if (!fixedDataset && !KEY_PATTERN.test(key)) {
       setFormError('Dataset key must use lowercase letters, numbers and single hyphens, for example marinduque-island.')
       return
     }
-    if (!label.trim()) {
+    const datasetLabel = fixedDataset ? fixedDataset.label : label.trim()
+    if (!datasetLabel) {
       setFormError('Enter a display name for this dataset.')
       return
     }
@@ -109,8 +123,8 @@ export function GeographicImportForm({ onImported }: { onImported: () => void })
     try {
       await importBoundary({
         boundaryKey: key,
-        label: label.trim(),
-        kind,
+        label: datasetLabel,
+        kind: fixedDataset ? fixedDataset.kind : kind,
         source: {
           name: source.name.trim(),
           publisher: source.publisher.trim(),
@@ -140,9 +154,11 @@ export function GeographicImportForm({ onImported }: { onImported: () => void })
   return (
     <form onSubmit={handleSubmit} className="card flex flex-col gap-4">
       <div>
-        <h2 className="text-base font-bold text-ocean-900">Import a new dataset</h2>
+        <h2 className="text-base font-bold text-ocean-900">
+          {fixedDataset ? 'Upload a new boundary version' : 'Import a new dataset'}
+        </h2>
         <p className="text-sm text-ocean-700">
-          Upload a GeoJSON file (Polygon or MultiPolygon) from an official or citable source. Every import starts as an unverified draft.
+          Upload a GeoJSON file (Polygon or MultiPolygon) from an official or citable source. Every upload starts as an unverified draft.
         </p>
       </div>
 
@@ -168,6 +184,9 @@ export function GeographicImportForm({ onImported }: { onImported: () => void })
               latitude {prepared.validated.bbox.min_lat.toFixed(4)} to {prepared.validated.bbox.max_lat.toFixed(4)}
             </li>
           </ul>
+          <div className="mt-3">
+            <GeometryPreview coordinates={prepared.validated.geometry.coordinates} bbox={prepared.validated.bbox} />
+          </div>
           {prepared.validated.warnings.length > 0 && (
             <ul className="mt-2 list-disc space-y-1 pl-5 text-amber-800">
               {prepared.validated.warnings.map((warning) => (
@@ -192,24 +211,28 @@ export function GeographicImportForm({ onImported }: { onImported: () => void })
       )}
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="flex flex-col gap-1 text-sm font-semibold text-ocean-800">
-          Dataset key
-          <input className="input-field" value={boundaryKey} onChange={(e) => setBoundaryKey(e.target.value)} placeholder="marinduque-island" />
-        </label>
-        <label className="flex flex-col gap-1 text-sm font-semibold text-ocean-800">
-          Display name
-          <input className="input-field" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Marinduque island" />
-        </label>
-        <label className="flex flex-col gap-1 text-sm font-semibold text-ocean-800">
-          Dataset type
-          <select className="input-field" value={kind} onChange={(e) => setKind(e.target.value)}>
-            {KIND_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        {!fixedDataset && (
+          <>
+            <label className="flex flex-col gap-1 text-sm font-semibold text-ocean-800">
+              Dataset key
+              <input className="input-field" value={boundaryKey} onChange={(e) => setBoundaryKey(e.target.value)} placeholder="marinduque-island" />
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-semibold text-ocean-800">
+              Display name
+              <input className="input-field" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Marinduque island" />
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-semibold text-ocean-800">
+              Dataset type
+              <select className="input-field" value={kind} onChange={(e) => setKind(e.target.value)}>
+                {KIND_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
+        )}
         <label className="flex flex-col gap-1 text-sm font-semibold text-ocean-800">
           Source name
           <input className="input-field" value={source.name} onChange={(e) => updateSource('name', e.target.value)} />

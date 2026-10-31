@@ -1,10 +1,13 @@
+import type { MunicipalityEntry } from '../municipalities'
 import type { GlobeData, GlobeIslandOutline, Position } from './globeData'
 import type { Cesium, CesiumViewer } from './globeEngine'
 
-const BOUNDARY_COLOR = '#38bdf8'
+const MUNICIPALITY_COLOR = '#38bdf8'
+const SELECTED_MUNICIPALITY_COLOR = '#34d399'
 const ROUTE_COLOR = '#f59e0b'
 const ISLAND_COLOR = '#fde047'
 const ISLAND_SOURCE_NAME = 'island-outline'
+const MUNICIPALITY_SOURCE_NAME = 'municipality-boundaries'
 
 function centroid(rings: Position[][]): Position {
   const points = rings.flat()
@@ -43,30 +46,39 @@ export function setIslandOutlineVisible(viewer: CesiumViewer, visible: boolean) 
   }
 }
 
-export function renderGlobeLayers(viewer: CesiumViewer, Cesium: Cesium, data: GlobeData) {
-  viewer.entities.removeAll()
-  renderIslandOutline(viewer, Cesium, data.islandOutline)
+export function renderMunicipalityBoundaries(
+  viewer: CesiumViewer,
+  Cesium: Cesium,
+  entries: MunicipalityEntry[],
+  selectedId: string | null,
+) {
+  for (const existing of viewer.dataSources.getByName(MUNICIPALITY_SOURCE_NAME)) {
+    viewer.dataSources.remove(existing, true)
+  }
+  const source = new Cesium.CustomDataSource(MUNICIPALITY_SOURCE_NAME)
 
-  const boundaryFill = Cesium.Color.fromCssColorString(BOUNDARY_COLOR)
-  for (const boundary of data.boundaries ?? []) {
+  for (const { record, boundary } of entries) {
+    if (!boundary) continue
+    const selected = record.id === selectedId
+    const fill = Cesium.Color.fromCssColorString(selected ? SELECTED_MUNICIPALITY_COLOR : MUNICIPALITY_COLOR)
     for (const ring of boundary.rings) {
-      viewer.entities.add({
-        name: boundary.municipality,
+      source.entities.add({
+        name: record.name,
         polygon: {
           hierarchy: Cesium.Cartesian3.fromDegreesArray(ring.flat()),
-          material: boundaryFill.withAlpha(0.12),
+          material: fill.withAlpha(selected ? 0.35 : 0.12),
           outline: true,
-          outlineColor: boundaryFill.withAlpha(0.9),
+          outlineColor: fill.withAlpha(0.95),
           heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
         },
       })
     }
     if (boundary.rings.length > 0) {
       const [lng, lat] = centroid(boundary.rings)
-      viewer.entities.add({
+      source.entities.add({
         position: Cesium.Cartesian3.fromDegrees(lng, lat),
         label: {
-          text: boundary.municipality,
+          text: record.name,
           font: '600 13px sans-serif',
           fillColor: Cesium.Color.WHITE,
           outlineColor: Cesium.Color.BLACK,
@@ -77,6 +89,12 @@ export function renderGlobeLayers(viewer: CesiumViewer, Cesium: Cesium, data: Gl
       })
     }
   }
+  viewer.dataSources.add(source)
+}
+
+export function renderGlobeLayers(viewer: CesiumViewer, Cesium: Cesium, data: GlobeData) {
+  viewer.entities.removeAll()
+  renderIslandOutline(viewer, Cesium, data.islandOutline)
 
   const routeColor = Cesium.Color.fromCssColorString(ROUTE_COLOR)
   for (const route of data.routes) {

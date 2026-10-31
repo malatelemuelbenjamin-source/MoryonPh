@@ -1,4 +1,3 @@
-import { supabase } from '../supabase'
 import { fetchPublishedBoundary, ISLAND_OUTLINE_KEY, type VerificationStatus } from '../geographicBoundaries'
 import { fetchMapRoutes, fetchRouteGeometry, fetchRouteStopsForMap } from '../transportMap'
 
@@ -20,12 +19,6 @@ export interface GlobeRoute {
   stops: GlobeStop[]
 }
 
-export interface GlobeBoundary {
-  id: string
-  municipality: string
-  rings: Position[][]
-}
-
 export interface GlobeIslandOutline {
   label: string
   verificationStatus: VerificationStatus
@@ -34,7 +27,6 @@ export interface GlobeIslandOutline {
 }
 
 export interface GlobeData {
-  boundaries: GlobeBoundary[] | null
   islandOutline: GlobeIslandOutline | null
   routes: GlobeRoute[]
 }
@@ -62,17 +54,7 @@ function linePath(data: unknown): Position[] {
   )
 }
 
-function polygonRings(data: unknown): Position[][] {
-  const geom = unwrapGeometry(data)
-  if (!geom || geom.type !== 'MultiPolygon' || !Array.isArray(geom.coordinates)) return []
-  return geom.coordinates.flatMap((polygon: unknown) => {
-    if (!Array.isArray(polygon) || !Array.isArray(polygon[0])) return []
-    const outer = polygon[0] as unknown[]
-    return outer.every(isPosition) && outer.length >= 4 ? [outer as Position[]] : []
-  })
-}
-
-function allMultiPolygonRings(data: unknown): Position[][] {
+export function allMultiPolygonRings(data: unknown): Position[][] {
   const geom = unwrapGeometry(data)
   if (!geom || geom.type !== 'MultiPolygon' || !Array.isArray(geom.coordinates)) return []
   return geom.coordinates.flatMap((polygon: unknown) => {
@@ -122,33 +104,13 @@ async function fetchGlobeRoutes(): Promise<GlobeRoute[]> {
   )
 }
 
-async function fetchMunicipalityBoundaries(): Promise<GlobeBoundary[]> {
-  const { data, error } = await supabase
-    .from('municipality_boundaries')
-    .select('id, municipality, geometry_data')
-    .order('municipality', { ascending: true })
-
-  if (error) throw new Error(error.message)
-
-  const rows = (data ?? []) as { id: string; municipality: string; geometry_data: unknown }[]
-  return rows.map((row) => ({
-    id: row.id,
-    municipality: row.municipality,
-    rings: polygonRings(row.geometry_data),
-  }))
-}
-
 export async function loadGlobeData(): Promise<GlobeData> {
-  const [boundaries, islandOutline, routes] = await Promise.all([
-    fetchMunicipalityBoundaries().catch((err: Error) => {
-      console.error('fetchMunicipalityBoundaries error:', err.message)
-      return null
-    }),
+  const [islandOutline, routes] = await Promise.all([
     fetchIslandOutline().catch((err: Error) => {
       console.error('fetchIslandOutline error:', err.message)
       return null
     }),
     fetchGlobeRoutes(),
   ])
-  return { boundaries, islandOutline, routes }
+  return { islandOutline, routes }
 }

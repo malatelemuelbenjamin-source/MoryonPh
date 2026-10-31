@@ -8,6 +8,7 @@ import {
   type ImageryProviderId,
 } from './mapProviders'
 import type { MapSettings } from './mapSettings'
+import { canShowOnGlobe, type MunicipalityEntry } from '../municipalities'
 
 export type Cesium = typeof CesiumNamespace
 export type CesiumViewer = CesiumNamespace.Viewer
@@ -188,6 +189,30 @@ export function flyToMarinduque(viewer: CesiumViewer, Cesium: Cesium, duration =
     orientation: { heading: 0, pitch: Cesium.Math.toRadians(-90), roll: 0 },
     duration,
   })
+}
+
+const MUNICIPALITY_VIEW_PADDING_DEGREES = 0.02
+const MUNICIPALITY_CENTER_HEIGHT_METERS = 25000
+
+export function flyToMunicipality(viewer: CesiumViewer, Cesium: Cesium, entry: MunicipalityEntry, duration = 1.5): boolean {
+  if (!canShowOnGlobe(entry)) return false
+  if (entry.boundary) {
+    const { min_lon, min_lat, max_lon, max_lat } = entry.boundary.bbox
+    const pad = MUNICIPALITY_VIEW_PADDING_DEGREES
+    viewer.camera.flyTo({
+      destination: Cesium.Rectangle.fromDegrees(min_lon - pad, min_lat - pad, max_lon + pad, max_lat + pad),
+      duration,
+    })
+    return true
+  }
+  const { center_lon: longitude, center_lat: latitude } = entry.record
+  if (longitude === null || latitude === null) return false
+  viewer.camera.flyTo({
+    destination: Cesium.Cartesian3.fromDegrees(longitude, latitude, MUNICIPALITY_CENTER_HEIGHT_METERS),
+    orientation: { heading: 0, pitch: Cesium.Math.toRadians(-90), roll: 0 },
+    duration,
+  })
+  return true
 }
 
 export function setSceneMode(viewer: CesiumViewer, mode: SceneMode) {

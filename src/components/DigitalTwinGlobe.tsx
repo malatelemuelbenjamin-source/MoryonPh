@@ -4,6 +4,7 @@ import {
   applyMapSettings,
   createGlobeViewer,
   flyToMarinduque,
+  flyToMunicipality,
   hasWebGL,
   loadCesium,
   setSceneMode,
@@ -14,7 +15,11 @@ import {
   type SceneMode,
 } from '../lib/digitalTwin/globeEngine'
 import { loadGlobeData, type GlobeData } from '../lib/digitalTwin/globeData'
-import { renderGlobeLayers, setIslandOutlineVisible } from '../lib/digitalTwin/globeLayers'
+import {
+  renderGlobeLayers,
+  renderMunicipalityBoundaries,
+  setIslandOutlineVisible,
+} from '../lib/digitalTwin/globeLayers'
 import { FALLBACK_IMAGERY_ID } from '../lib/digitalTwin/mapProviders'
 import {
   defaultMapSettings,
@@ -31,7 +36,9 @@ import {
   resolveCesiumToken,
   saveCesiumToken,
 } from '../lib/digitalTwin/cesiumToken'
+import { loadMunicipalityDirectory, type MunicipalityEntry } from '../lib/municipalities'
 import { MapSettingsPanel } from './MapSettingsPanel'
+import { MunicipalityExplorer } from './MunicipalityExplorer'
 
 type GlobeStatus = 'loading' | 'ready' | 'error'
 
@@ -47,15 +54,12 @@ const TOKEN_SOURCE_LABELS = {
 } as const
 
 function describeGlobeLayers(data: GlobeData): string {
-  const outlines = data.boundaries
-    ? `${data.boundaries.length} municipality outlines`
-    : 'Municipality outlines could not be loaded'
   const island = data.islandOutline
     ? `Island outline ${data.islandOutline.verificationStatus === 'verified' ? '(verified)' : '(unverified dataset)'}`
     : 'No island outline published yet'
   const routes = data.routes.filter((route) => route.path.length >= 2).length
   const routeText = routes > 0 ? `${routes} commuter routes` : 'No commuter routes are published yet'
-  return `${outlines} · ${island} · ${routeText}`
+  return `${island} · ${routeText}`
 }
 
 export function DigitalTwinGlobe() {
@@ -80,6 +84,9 @@ export function DigitalTwinGlobe() {
   const [layersReady, setLayersReady] = useState(false)
   const [tilesLoading, setTilesLoading] = useState(false)
   const [fullscreenNotice, setFullscreenNotice] = useState<string | null>(null)
+  const [municipalities, setMunicipalities] = useState<MunicipalityEntry[] | null>(null)
+  const [municipalityError, setMunicipalityError] = useState<string | null>(null)
+  const [selectedMunicipalityId, setSelectedMunicipalityId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!webglSupported) return
@@ -149,6 +156,31 @@ export function DigitalTwinGlobe() {
   }, [layersReady, mapSettings.showIslandOutline])
 
   useEffect(() => {
+    let cancelled = false
+    loadMunicipalityDirectory()
+      .then((entries) => {
+        if (cancelled) return
+        setMunicipalities(entries)
+        setMunicipalityError(null)
+      })
+      .catch((err: Error) => {
+        if (cancelled) return
+        console.error('loadMunicipalityDirectory error:', err.message)
+        setMunicipalityError('The municipality list could not be loaded. Try again later.')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    const viewer = viewerRef.current
+    const Cesium = cesiumRef.current
+    if (!layersReady || !viewer || !Cesium || !municipalities) return
+    renderMunicipalityBoundaries(viewer, Cesium, municipalities, selectedMunicipalityId)
+  }, [layersReady, municipalities, selectedMunicipalityId])
+
+  useEffect(() => {
     if (status !== 'ready') return
 
     applyQueueRef.current = applyQueueRef.current.then(async () => {
@@ -187,6 +219,21 @@ export function DigitalTwinGlobe() {
     const Cesium = cesiumRef.current
     if (viewer && Cesium) action(viewer, Cesium)
   }
+
+  const selectMunicipality = (id: string | null) => {
+    setSelectedMunicipalityId(id)
+    const entry = id ? municipalities?.find((item) => item.record.id === id) : undefined
+    if (entry) withViewer((viewer, Cesium) => flyToMunicipality(viewer, Cesium, entry))
+  }
+
+  const explorer = (
+    <MunicipalityExplorer
+      entries={municipalities}
+      loadError={municipalityError}
+      selectedId={selectedMunicipalityId}
+      onSelect={selectMunicipality}
+    />
+  )
 
   const handleSceneMode = () => {
     const next: SceneMode = sceneMode === '3d' ? '2d' : '3d'
@@ -250,11 +297,14 @@ export function DigitalTwinGlobe() {
 
   if (!webglSupported) {
     return (
-      <div className="flex h-80 flex-col items-center justify-center gap-2 rounded-xl bg-ocean-50 p-4 text-center">
-        <AlertCircle size={28} className="text-terra-600" />
-        <p className="text-sm font-semibold text-ocean-900">3D view is not supported on this device.</p>
-        <p className="text-xs text-ocean-600">Use the list or 2D map instead.</p>
-      </div>
+      <>
+        <div className="flex h-80 flex-col items-center justify-center gap-2 rounded-xl bg-ocean-50 p-4 text-center">
+          <AlertCircle size={28} className="text-terra-600" />
+          <p className="text-sm font-semibold text-ocean-900">3D view is not supported on this device.</p>
+          <p className="text-xs text-ocean-600">Use the list or 2D map instead.</p>
+        </div>
+        {explorer}
+      </>
     )
   }
 
@@ -266,6 +316,7 @@ export function DigitalTwinGlobe() {
   ]
 
   return (
+    <>
     <div
       ref={wrapperRef}
       className={`relative overflow-hidden bg-ocean-900 ${isFullscreen ? 'h-full w-full' : 'h-80 rounded-xl'}`}
@@ -390,5 +441,7 @@ export function DigitalTwinGlobe() {
         </div>
       )}
     </div>
+    {!isFullscreen && explorer}
+    </>
   )
 }

@@ -69,6 +69,17 @@ export async function fetchPublishedBoundary(boundaryKey: string): Promise<Geogr
   return (data as GeographicBoundary | null) ?? null
 }
 
+export async function fetchPublishedBoundariesByKind(kind: string): Promise<GeographicBoundary[]> {
+  const { data, error } = await supabase
+    .from('geographic_boundaries')
+    .select(BOUNDARY_SELECT)
+    .eq('kind', kind)
+    .eq('status', 'published')
+    .eq('verification_status', 'verified')
+  if (error) throw new Error(error.message)
+  return (data ?? []) as GeographicBoundary[]
+}
+
 export async function fetchAdminBoundaries(): Promise<GeographicBoundary[]> {
   const { data, error } = await supabase
     .from('geographic_boundaries')
