@@ -20,14 +20,14 @@
 
 ## 4. Supabase compatibility (planned, no tables created yet)
 - Existing `locations`, `routes`, `route_geometry` and `destinations` tables already hold coordinates. The Digital Twin will read these rather than duplicate them.
-- Municipality boundaries are stored in `municipality_boundaries` (public read-only, seeded from geoBoundaries ADM3 for the six Marinduque municipalities). Routes and stops are read through the existing transport map queries.
+- The six Marinduque municipalities are stored in `municipalities` (public read, admin-only writes through `update_municipality_details`, which records every change in `municipality_revisions`). Municipality boundaries are versioned rows in `geographic_boundaries` (kind `municipal_boundary`). Only published, verified versions are drawn on the globe. The legacy `municipality_boundaries` table is left unchanged and is no longer drawn. Routes and stops are read through the existing transport map queries.
 - Future additions: barangay boundaries, a geographic layer registry (layer kind, source, verification status), and 3D model references pointing to Supabase Storage objects.
 - All new tables will follow the existing RLS pattern: public read of verified records, admin write, and new submissions routed through the verification workflow.
 
 ## 5. Required external configuration
 - `VITE_CESIUM_ION_TOKEN` (optional): needed for Cesium ion aerial imagery and Cesium World Terrain. A Cesium ion account is required to create the token.
 - `VITE_GOOGLE_TILES_KEY`: not used. Google Photorealistic 3D Tiles would need an authorized Google Maps Platform key and billing, and must not be enabled without that authorization. The key must never be bundled into client code.
-- Municipality outlines are from geoBoundaries (2020) and are approximate. They should be checked against official PSA or LGU maps before any legal or planning use.
+- The legacy municipality outlines are from geoBoundaries (2020) and are approximate. They are seeded as unverified drafts and are not shown until an admin verifies the source and publishes them. Verify against official PSA or LGU maps before any legal or planning use.
 - Terrain resolution for Marinduque is not verified. Cesium World Terrain is used worldwide, and rural areas may be coarser.
 - Aerial imagery date and resolution for Marinduque are not verified.
 - Still not sourced: barangay boundaries, and building or road data. Sources must be verified before import.
@@ -49,10 +49,12 @@
 - `src/vite-env.d.ts`, `.env.example`, `README.md`
 - Prompt 3: `src/lib/digitalTwin/mapProviders.ts`, `src/lib/digitalTwin/mapSettings.ts`, `src/lib/digitalTwin/globeEngine.ts`, `src/components/MapSettingsPanel.tsx`, `src/components/DigitalTwinGlobe.tsx`
 - Prompt 4: `src/lib/geoJsonValidation.ts`, `src/lib/geographicBoundaries.ts`, `src/lib/digitalTwin/globeData.ts`, `src/lib/digitalTwin/globeLayers.ts`, `src/components/GeographicImportForm.tsx`, `src/components/GeographicBoundaryDetail.tsx`, `src/pages/AdminGeographicBoundariesPage.tsx`
+- Prompt 5: `src/lib/municipalities.ts`, `src/lib/digitalTwin/globeEngine.ts`, `src/lib/digitalTwin/globeLayers.ts`, `src/lib/digitalTwin/globeData.ts`, `src/lib/geographicBoundaries.ts`, `src/lib/adminDashboard.ts`, `src/components/DigitalTwinGlobe.tsx`, `src/components/MunicipalityExplorer.tsx`, `src/components/MunicipalityDetailPanel.tsx`, `src/components/MunicipalityDetailsForm.tsx`, `src/components/MunicipalityBoundaryAdmin.tsx`, `src/components/MunicipalityAdminPanel.tsx`, `src/components/GeometryPreview.tsx`, `src/components/GeographicImportForm.tsx`, `src/components/GeographicBoundaryDetail.tsx`, `src/pages/AdminMunicipalitiesPage.tsx`, `src/App.tsx`
 
 ## 9. Implementation stages
-1. Stage 2 (implemented as a 3D Globe option on the transport map page): lazy-loaded globe with loading, error and retry states, zoom, reset, 2D/3D toggle, full screen, a Cesium token panel, Marinduque municipality outlines, and commuter routes and stops read from the database. Routes show an empty state until route data is published.
+1. Stage 2 (implemented as a 3D Globe option on the transport map page): lazy-loaded globe with loading, error and retry states, zoom, reset, 2D/3D toggle, full screen, a Cesium token panel, and commuter routes and stops read from the database. Routes show an empty state until route data is published.
 1b. Stage 2c (Digital Twin Prompt 4): Marinduque island outline stored as versioned GeoJSON in the database. Admins import a file at `/admin/geographic-boundaries`, which validates it, shows a preview, and keeps it as a draft until a source is verified and the version is published. Only published, verified-or-first-published data is shown on the globe behind an island outline toggle, dashed when unverified. The seeded Marinduque row is an unpublished municipal union, not a verified island coastline, so no island outline is shown until a real dataset is published.
+1c. Stage 2d (Digital Twin Prompt 5): Six Municipality Explorer. The `municipalities` directory lists Boac, Buenavista, Gasan, Mogpog, Santa Cruz and Torrijos with no invented codes, coordinates, areas or images. Each municipality has a searchable selection panel. Selecting one highlights its published, verified boundary on the globe, flies the camera to it, and shows its verified details. Municipalities without a verified boundary are listed with an honest unavailable status. Admins manage details and boundary versions at `/admin/municipalities`, and publishing requires a verified draft (enforced in the database).
 1a. Stage 2b (Digital Twin Prompt 3): real terrain and aerial imagery through a provider catalogue, a map settings panel, attribution and coverage notes, and fallbacks to the basic map. The globe has not been tested in a browser.
 2. Stage 3: Barangay boundaries, verified-only layer filtering, and admin tools for boundary data.
 3. Stage 4: 3D buildings and 3D Tiles from approved sources.
