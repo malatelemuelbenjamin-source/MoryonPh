@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { AlertCircle, KeyRound, Layers, Loader2, Maximize, Minimize, Minus, Plus, RefreshCw, RotateCcw, SlidersHorizontal } from 'lucide-react'
+import { AlertCircle, KeyRound, Layers, Loader2, Maximize, Minimize, Minus, Plus, RefreshCw, RotateCcw, Search, SlidersHorizontal } from 'lucide-react'
 import {
   applyMapSettings,
   createGlobeViewer,
@@ -16,6 +16,7 @@ import {
 } from '../lib/digitalTwin/globeEngine'
 import { loadGlobeData, type GlobeData } from '../lib/digitalTwin/globeData'
 import { applyLayerVisibility, renderGlobeLayers, renderMunicipalityBoundaries } from '../lib/digitalTwin/globeLayers'
+import { attachRoadNetwork, describeRoadState, flyToRoad, type RoadLoadState } from '../lib/digitalTwin/roadNetworkLayer'
 import {
   buildLayerAvailability,
   defaultLayerPreferences,
@@ -42,10 +43,12 @@ import {
   saveCesiumToken,
 } from '../lib/digitalTwin/cesiumToken'
 import { loadMunicipalityDirectory, type MunicipalityEntry } from '../lib/municipalities'
+import type { RoadSegment } from '../lib/roadNetwork'
 import { MapLayerLegend } from './MapLayerLegend'
 import { MapLayerPanel } from './MapLayerPanel'
 import { MapSettingsPanel } from './MapSettingsPanel'
 import { MunicipalityExplorer } from './MunicipalityExplorer'
+import { RoadSearchPanel } from './RoadSearchPanel'
 
 type GlobeStatus = 'loading' | 'ready' | 'error'
 
@@ -89,6 +92,9 @@ export function DigitalTwinGlobe() {
   const [municipalities, setMunicipalities] = useState<MunicipalityEntry[] | null>(null)
   const [municipalityError, setMunicipalityError] = useState<string | null>(null)
   const [selectedMunicipalityId, setSelectedMunicipalityId] = useState<string | null>(null)
+  const [roadState, setRoadState] = useState<RoadLoadState | null>(null)
+  const [roadSearchOpen, setRoadSearchOpen] = useState(false)
+  const roadVersionId = globeData?.roadVersion?.id ?? null
 
   useEffect(() => {
     if (!webglSupported) return
@@ -178,6 +184,16 @@ export function DigitalTwinGlobe() {
 
   useEffect(() => {
     const viewer = viewerRef.current
+    const Cesium = cesiumRef.current
+    if (!layersReady || !viewer || !Cesium || !roadVersionId) {
+      setRoadState(null)
+      return
+    }
+    return attachRoadNetwork(viewer, Cesium, roadVersionId, setRoadState)
+  }, [layersReady, roadVersionId])
+
+  useEffect(() => {
+    const viewer = viewerRef.current
     if (!layersReady || !viewer) return
     applyLayerVisibility(viewer, layerPreferences)
   }, [layersReady, layerPreferences, municipalities, selectedMunicipalityId])
@@ -236,6 +252,10 @@ export function DigitalTwinGlobe() {
       onSelect={selectMunicipality}
     />
   )
+
+  const selectRoad = (road: RoadSegment) => {
+    withViewer((viewer, Cesium) => flyToRoad(viewer, Cesium, road))
+  }
 
   const handleSceneMode = () => {
     const next: SceneMode = sceneMode === '3d' ? '2d' : '3d'
@@ -374,6 +394,12 @@ export function DigitalTwinGlobe() {
         <MapLayerLegend availability={availability} preferences={layerPreferences} />
       )}
 
+      {isReady && roadState && layerPreferences['road-network'] && (
+        <p role="status" className="absolute bottom-14 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-white/95 px-3 py-1 text-xs text-ocean-800 shadow-card">
+          {describeRoadState(roadState)}
+        </p>
+      )}
+
       {(notices.length > 0 || fullscreenNotice) && isReady && (
         <p className="absolute left-3 right-28 top-3 rounded-lg bg-white/95 px-3 py-2 text-xs text-ocean-800 shadow-card">
           {[...notices, fullscreenNotice].filter(Boolean).join(' ')}
@@ -381,6 +407,17 @@ export function DigitalTwinGlobe() {
       )}
 
       <div className="absolute right-3 top-3 z-10 flex gap-2">
+        {isReady && roadVersionId && (
+          <button
+            type="button"
+            aria-label="Find a road"
+            aria-pressed={roadSearchOpen}
+            className={CONTROL_BUTTON}
+            onClick={() => setRoadSearchOpen((open) => !open)}
+          >
+            <Search size={18} />
+          </button>
+        )}
         {isReady && (
           <button
             type="button"
@@ -418,6 +455,15 @@ export function DigitalTwinGlobe() {
           onChange={handleSettingsChange}
           onReset={handleSettingsReset}
           onClose={() => setSettingsOpen(false)}
+        />
+      )}
+
+      {isReady && roadSearchOpen && roadVersionId && (
+        <RoadSearchPanel
+          versionId={roadVersionId}
+          municipalities={municipalities ?? []}
+          onSelect={selectRoad}
+          onClose={() => setRoadSearchOpen(false)}
         />
       )}
 

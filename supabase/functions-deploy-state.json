@@ -8,6 +8,10 @@
     "weather-proxy": {
       "hasChanged": false,
       "hash": "14c02945eeb99454525b8b7a25f8f2ff10f2313c8cbeca7d2cce274b1bf24685"
+    },
+    "import-osm-roads": {
+      "hasChanged": false,
+      "hash": "5c9a5e6dce872b41b712852ae758837e690ad593f41601227dd123489fa9a15c"
     }
   }
 }

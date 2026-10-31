@@ -1,7 +1,7 @@
 import type { MunicipalityEntry } from '../municipalities'
 import type { GlobeData } from './globeData'
 
-export type MapLayerId = 'island-outline' | 'municipal-boundaries' | 'barangay-boundaries' | 'commuter-routes'
+export type MapLayerId = 'island-outline' | 'municipal-boundaries' | 'barangay-boundaries' | 'commuter-routes' | 'road-network'
 export type MapLayerCategoryId = 'administrative-boundaries' | 'transportation'
 
 export interface MapLayerCategory {
@@ -22,6 +22,7 @@ export interface LayerAvailability {
   available: boolean
   verified: boolean | null
   sourceNote: string
+  attribution: string | null
 }
 
 export type LayerAvailabilityMap = Record<MapLayerId, LayerAvailability>
@@ -32,6 +33,7 @@ export const LAYER_COLOR: Record<MapLayerId, string> = {
   'municipal-boundaries': '#38bdf8',
   'barangay-boundaries': '#a3e635',
   'commuter-routes': '#f59e0b',
+  'road-network': '#94a3b8',
 }
 
 export const MAP_LAYER_CATEGORIES: MapLayerCategory[] = [
@@ -73,6 +75,14 @@ export const MAP_LAYERS: MapLayerDefinition[] = [
     defaultVisible: true,
     unavailableReason: 'No commuter routes have been published yet.',
   },
+  {
+    id: 'road-network',
+    category: 'transportation',
+    name: 'Road network',
+    description: 'Roads from OpenStreetMap. Zoom in to load more detail.',
+    defaultVisible: true,
+    unavailableReason: 'No road network has been published yet.',
+  },
 ]
 
 export const MAP_LAYER_IDS: MapLayerId[] = MAP_LAYERS.map((layer) => layer.id)
@@ -82,26 +92,37 @@ export function buildLayerAvailability(globe: GlobeData, municipalities: Municip
   const municipalCount = municipalities.filter((entry) => entry.boundary).length
   const barangayCount = globe.barangayBoundaries.length
   const routeCount = globe.routes.filter((route) => route.path.length >= 2).length
+  const roads = globe.roadVersion
   return {
     'island-outline': {
       available: island !== null,
       verified: island ? island.verificationStatus === 'verified' : null,
       sourceNote: island ? `Source: ${island.sourceName}` : 'No source published',
+      attribution: null,
     },
     'municipal-boundaries': {
       available: municipalCount > 0,
       verified: municipalCount > 0 ? true : null,
       sourceNote: 'Published boundaries, verified before publication',
+      attribution: null,
     },
     'barangay-boundaries': {
       available: barangayCount > 0,
       verified: barangayCount > 0 ? true : null,
       sourceNote: 'Verified barangay datasets from the import pipeline',
+      attribution: null,
     },
     'commuter-routes': {
       available: routeCount > 0,
       verified: null,
       sourceNote: 'Published route data',
+      attribution: null,
+    },
+    'road-network': {
+      available: roads !== null,
+      verified: roads ? true : null,
+      sourceNote: roads ? `${roads.roadCount.toLocaleString()} roads in the published version` : 'No road version published',
+      attribution: roads ? roads.attribution : null,
     },
   }
 }

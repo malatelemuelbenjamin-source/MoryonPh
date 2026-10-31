@@ -21,6 +21,12 @@ export function MapLayerLegend({ availability, preferences }: MapLayerLegendProp
           </li>
         ))}
       </ul>
+      {active.map((layer) => {
+        const attribution = availability[layer.id].attribution
+        return attribution ? (
+          <p key={layer.id} className="mt-1.5 border-t border-ocean-100 pt-1.5 text-[10px] text-ocean-600">{attribution}</p>
+        ) : null
+      })}
     </div>
   )
 }

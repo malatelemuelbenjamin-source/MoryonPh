@@ -5,8 +5,15 @@ import {
   type VerificationStatus,
 } from '../geographicBoundaries'
 import { fetchMapRoutes, fetchRouteGeometry, fetchRouteStopsForMap } from '../transportMap'
+import { fetchPublishedRoadVersion } from '../roadNetwork'
 
 export type Position = [number, number]
+
+export interface GlobeRoadVersion {
+  id: string
+  attribution: string
+  roadCount: number
+}
 
 export interface GlobeStop {
   id: string
@@ -41,6 +48,7 @@ export interface GlobeData {
   islandOutline: GlobeIslandOutline | null
   barangayBoundaries: GlobeAreaBoundary[]
   routes: GlobeRoute[]
+  roadVersion: GlobeRoadVersion | null
 }
 
 function isPosition(value: unknown): value is Position {
@@ -124,8 +132,14 @@ async function fetchGlobeRoutes(): Promise<GlobeRoute[]> {
   )
 }
 
+async function fetchRoadVersion(): Promise<GlobeRoadVersion | null> {
+  const version = await fetchPublishedRoadVersion()
+  if (!version) return null
+  return { id: version.id, attribution: version.source_attribution, roadCount: version.road_count }
+}
+
 export async function loadGlobeData(): Promise<GlobeData> {
-  const [islandOutline, barangayBoundaries, routes] = await Promise.all([
+  const [islandOutline, barangayBoundaries, routes, roadVersion] = await Promise.all([
     fetchIslandOutline().catch((err: Error) => {
       console.error('fetchIslandOutline error:', err.message)
       return null
@@ -135,6 +149,10 @@ export async function loadGlobeData(): Promise<GlobeData> {
       return []
     }),
     fetchGlobeRoutes(),
+    fetchRoadVersion().catch((err: Error) => {
+      console.error('fetchRoadVersion error:', err.message)
+      return null
+    }),
   ])
-  return { islandOutline, barangayBoundaries, routes }
+  return { islandOutline, barangayBoundaries, routes, roadVersion }
 }
