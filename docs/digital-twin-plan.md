@@ -12,7 +12,7 @@
 ## 3. CesiumJS approach
 - Dependency: `cesium` (1.146) with `vite-plugin-static-copy` 3.4 (Vite 5 compatible).
 - `vite.config.js` copies Cesium's Workers, ThirdParty, Assets and Widgets into `dist/cesium` and sets `CESIUM_BASE_URL` to `./cesium`, so it works under the app's relative base path and inside the Capacitor Android wrapper.
-- Cesium is not yet imported by any screen, so the main bundle size is unchanged. The next stage will load it with a dynamic import on the Digital Twin page only.
+- Cesium is loaded only with a dynamic import when the 3D Globe option is opened on the transport map page. It ships as its own chunk (about 5 MB before compression), and the main app bundle grows by only a few kilobytes.
 - Terrain, imagery and 3D Tiles are not configured yet. Cesium's default imagery requires a Cesium ion token (`VITE_CESIUM_ION_TOKEN`, optional). Without one, the globe falls back to a plain background.
 
 ## 4. Supabase compatibility (planned, no tables created yet)
@@ -41,7 +41,7 @@
 - `src/vite-env.d.ts`, `.env.example`, `README.md`
 
 ## 9. Implementation stages
-1. Stage 2: Cesium globe page behind an admin-only route, error boundary, loading state, and the 2D fallback.
+1. Stage 2 (implemented as a 3D Globe option on the transport map page): lazy-loaded globe with loading, error and retry states, zoom, reset, 2D/3D toggle, full screen, and an offline basic world map when no Cesium ion token is set.
 2. Stage 3: Geographic data tables, boundary layers, and verified-only public read access.
 3. Stage 4: 3D buildings and 3D Tiles from approved sources.
 4. Stage 5: Vehicle visualization, GPS tracking, pedestrian simulation, and 3D navigation.

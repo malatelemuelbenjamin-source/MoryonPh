@@ -21,6 +21,7 @@ import {
   Siren,
   Loader2,
   Route as RouteIcon,
+  Globe,
 } from 'lucide-react'
 import {
   fetchMapLocations,
@@ -37,6 +38,7 @@ import {
 import { verificationClasses, VERIFICATION_LABELS, formatRelativeTime } from '../lib/labels'
 import { useAuth } from '../lib/auth'
 import type { LocationRow } from '../lib/types'
+import { DigitalTwinGlobe } from '../components/DigitalTwinGlobe'
 
 type LoadState = 'loading' | 'done' | 'error'
 
@@ -87,6 +89,7 @@ export function TransportMapPage() {
   const [gpsStatus, setGpsStatus] = useState<'idle' | 'loading' | 'granted' | 'denied'>('idle')
   const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [viewMode, setViewMode] = useState<'map' | 'list'>('list')
+  const [mapEngine, setMapEngine] = useState<'grid' | 'globe'>('grid')
 
   const loadData = useCallback(async () => {
     setLoadState('loading')
@@ -406,7 +409,15 @@ export function TransportMapPage() {
 
             {/* Map view (visual marker representation) */}
             {viewMode === 'map' && (
-              <section className="card">
+              <section className="card space-y-3">
+                <div className="flex flex-wrap gap-1.5">
+                  <FilterChip active={mapEngine === 'grid'} onClick={() => setMapEngine('grid')} label="2D Map" icon={MapPin} />
+                  <FilterChip active={mapEngine === 'globe'} onClick={() => setMapEngine('globe')} label="3D Globe" icon={Globe} />
+                </div>
+                {mapEngine === 'globe' ? (
+                  <DigitalTwinGlobe />
+                ) : (
+                  <>
                 <div className="relative h-80 overflow-hidden rounded-xl bg-ocean-50">
                   {/* Simple coordinate-based visual map */}
                   <div className="absolute inset-0 grid grid-cols-8 grid-rows-6 opacity-30">
@@ -453,6 +464,8 @@ export function TransportMapPage() {
                 <p className="mt-2 text-xs text-ocean-500">
                   Markers show verified locations with coordinates. Tap a marker for details.
                 </p>
+                  </>
+                )}
               </section>
             )}
 
