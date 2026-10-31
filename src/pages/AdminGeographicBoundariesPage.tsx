@@ -2,13 +2,15 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Lock, MapPin } from 'lucide-react'
 import { GeographicBoundaryDetail } from '../components/GeographicBoundaryDetail'
-import { GeographicImportForm } from '../components/GeographicImportForm'
+import { GeographicUploadForm } from '../components/GeographicUploadForm'
+import { GeographicUploadQueue } from '../components/GeographicUploadQueue'
 import {
   fetchAdminBoundaries,
   fetchBoundaryHistory,
   type GeographicBoundary,
   type GeographicHistoryEntry,
 } from '../lib/geographicBoundaries'
+import { fetchUploadJobs, type UploadJob } from '../lib/geographicUploads'
 import { isAlertAdmin } from '../lib/transportAlerts'
 import { formatRelativeTime } from '../lib/labels'
 
@@ -25,13 +27,15 @@ export function AdminGeographicBoundariesPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [boundaries, setBoundaries] = useState<GeographicBoundary[]>([])
   const [history, setHistory] = useState<GeographicHistoryEntry[]>([])
+  const [jobs, setJobs] = useState<UploadJob[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     try {
-      const [rows, entries] = await Promise.all([fetchAdminBoundaries(), fetchBoundaryHistory()])
+      const [rows, entries, uploads] = await Promise.all([fetchAdminBoundaries(), fetchBoundaryHistory(), fetchUploadJobs()])
       setBoundaries(rows)
       setHistory(entries)
+      setJobs(uploads)
       setLoadError(null)
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'The datasets could not be loaded.')
@@ -87,8 +91,16 @@ export function AdminGeographicBoundariesPage() {
           <p role="alert" className="card text-sm font-semibold text-red-700">{loadError}</p>
         )}
 
-        <GeographicImportForm
-          onImported={() => {
+        <GeographicUploadForm
+          onSaved={() => {
+            void refresh()
+          }}
+        />
+
+        <GeographicUploadQueue
+          jobs={jobs}
+          boundaries={boundaries}
+          onChanged={() => {
             void refresh()
           }}
         />

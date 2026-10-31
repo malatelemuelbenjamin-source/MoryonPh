@@ -155,3 +155,8 @@ export async function archiveBoundary(boundaryId: string, note: string): Promise
   const { error } = await supabase.rpc('archive_geographic_boundary', { p_boundary_id: boundaryId, p_note: note })
   if (error) throw new Error(error.message)
 }
+
+export async function restoreBoundaryVersion(boundaryId: string, note: string): Promise<void> {
+  const { error } = await supabase.rpc('rollback_geographic_boundary', { p_boundary_id: boundaryId, p_note: note })
+  if (error) throw new Error(error.message)
+}

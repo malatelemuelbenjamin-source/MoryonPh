@@ -25,7 +25,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function checkCrs(crs: unknown, errors: string[]) {
+export function checkCrs(crs: unknown, errors: string[]) {
   if (crs === undefined || crs === null) return
   const name = isRecord(crs) && isRecord(crs.properties) ? crs.properties.name : undefined
   if (typeof name !== 'string' || !CRS_OK.test(name)) {
@@ -33,7 +33,7 @@ function checkCrs(crs: unknown, errors: string[]) {
   }
 }
 
-function checkPosition(position: unknown, where: string, errors: string[]): position is number[] {
+export function checkPosition(position: unknown, where: string, errors: string[]): position is number[] {
   if (!Array.isArray(position) || position.length < 2 || !position.every((n) => typeof n === 'number' && Number.isFinite(n))) {
     errors.push(`${where} is not a valid coordinate pair.`)
     return false
@@ -74,7 +74,7 @@ function checkPolygon(rings: unknown, where: string, errors: string[]): rings is
   return valid
 }
 
-function collectPolygons(geometry: unknown, where: string, errors: string[]): number[][][][] {
+export function collectPolygons(geometry: unknown, where: string, errors: string[]): number[][][][] {
   if (!isRecord(geometry)) {
     errors.push(`${where} has no geometry.`)
     return []

@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 import {
   archiveBoundary,
   publishBoundary,
+  restoreBoundaryVersion,
   reviewBoundary,
   type GeographicBoundary,
 } from '../lib/geographicBoundaries'
@@ -34,6 +35,7 @@ export function GeographicBoundaryDetail({
   const [sourceChecked, setSourceChecked] = useState(false)
   const [reviewNote, setReviewNote] = useState('')
   const [archiveNote, setArchiveNote] = useState('')
+  const [restoreNote, setRestoreNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -42,6 +44,7 @@ export function GeographicBoundaryDetail({
   const canReview = isDraft && boundary.verification_status === 'unverified'
   const canPublish = isDraft && boundary.verification_status === 'verified'
   const canArchive = boundary.status !== 'archived'
+  const canRestore = boundary.status === 'archived' && boundary.verification_status === 'verified'
   const source = boundary.source
 
   async function run(action: () => Promise<void>, message: string) {
@@ -54,6 +57,7 @@ export function GeographicBoundaryDetail({
       setSourceChecked(false)
       setReviewNote('')
       setArchiveNote('')
+      setRestoreNote('')
       onChanged()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'The change could not be saved.')
@@ -176,6 +180,31 @@ export function GeographicBoundaryDetail({
               onClick={() => run(() => publishBoundary(boundary.id), 'Dataset published.')}
             >
               Publish
+            </button>
+          </div>
+        </div>
+      )}
+
+      {canRestore && (
+        <div className="flex flex-col gap-2 border-t border-ocean-100 pt-4">
+          <h3 className="text-sm font-bold text-ocean-900">Restore this version</h3>
+          <p className="text-sm text-ocean-700">
+            Makes this verified version the one shown on the globe again. The version currently shown is archived.
+          </p>
+          <input
+            className="input-field"
+            placeholder="Reason for restoring"
+            value={restoreNote}
+            onChange={(e) => setRestoreNote(e.target.value)}
+          />
+          <div className="flex justify-end">
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={busy || !restoreNote.trim()}
+              onClick={() => run(() => restoreBoundaryVersion(boundary.id, restoreNote.trim()), 'Version restored and shown on the globe.')}
+            >
+              Restore
             </button>
           </div>
         </div>
