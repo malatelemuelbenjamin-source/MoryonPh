@@ -7,8 +7,9 @@ workflows:
     environment:
       node: 22
       java: 21
- android_signing:
-    - moryon_keystore
+      android_signing:
+        - moryon_keystore
+
     scripts:
       - name: Install dependencies
         script: npm ci
