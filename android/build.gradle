@@ -1,19 +1,31 @@
-signingConfigs {
-    release {
-        def keystorePath = System.getenv("CM_KEYSTORE_PATH")
-        if (keystorePath != null) {
-            storeFile file(keystorePath)
-            storePassword System.getenv("CM_KEYSTORE_PASSWORD")
-            keyAlias System.getenv("CM_KEY_ALIAS")
-            keyPassword System.getenv("CM_KEY_PASSWORD")
+
+android {
+    // Panatilihin ang existing compileSdk, namespace,
+    // defaultConfig at iba pang settings mo.
+
+    signingConfigs {
+        release {
+            def keystorePath = System.getenv("CM_KEYSTORE_PATH")
+            if (keystorePath != null) {
+                storeFile file(keystorePath)
+                storePassword System.getenv("CM_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("CM_KEY_ALIAS")
+                keyPassword System.getenv("CM_KEY_PASSWORD")
+            }
         }
     }
-}
-if (System.getenv("CM_KEYSTORE_PATH") != null) {
-    signingConfig signingConfigs.release
-}
-defaultConfig {
-    applicationId "moryonGoPh.app"
-    versionCode 1
-    versionName "1.0.0"
+
+    defaultConfig {
+        applicationId "moryonGoPh.app"
+        versionCode 1
+        versionName "1.0.0"
+    }
+
+    buildTypes {
+        release {
+            if (System.getenv("CM_KEYSTORE_PATH") != null) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
 }
