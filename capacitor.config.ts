@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli'
 
 const config: CapacitorConfig = {
-  appId: 'com.moryongo.app',
-  appName: 'MoryonGo',
+  appId: 'moryonGoPh.app',
+  appName: 'MoryonGoPh',
   webDir: 'dist',
   bundledWebRuntime: false,
   backgroundColor: '#155571',
