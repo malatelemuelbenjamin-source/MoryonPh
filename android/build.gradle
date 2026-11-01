@@ -14,4 +14,6 @@ if (System.getenv("CM_KEYSTORE_PATH") != null) {
 }
 defaultConfig {
     applicationId "moryonGoPh.app"
+    versionCode 1
+    versionName "1.0.0"
 }
