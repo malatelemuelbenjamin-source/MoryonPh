@@ -12,3 +12,6 @@ signingConfigs {
 if (System.getenv("CM_KEYSTORE_PATH") != null) {
     signingConfig signingConfigs.release
 }
+defaultConfig {
+    applicationId "moryonGoPh.app"
+}
