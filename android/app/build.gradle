@@ -1,5 +1,10 @@
 apply plugin: 'com.android.application'
 
+def uploadKeyEnvNames = ['MYAPP_UPLOAD_STORE_FILE', 'MYAPP_UPLOAD_STORE_PASSWORD', 'MYAPP_UPLOAD_KEY_ALIAS', 'MYAPP_UPLOAD_KEY_PASSWORD']
+def missingUploadKeyEnv = uploadKeyEnvNames.findAll { !System.getenv(it) }
+def uploadStoreFile = System.getenv('MYAPP_UPLOAD_STORE_FILE') ? file(System.getenv('MYAPP_UPLOAD_STORE_FILE')) : null
+def uploadKeyReady = missingUploadKeyEnv.isEmpty() && uploadStoreFile != null && uploadStoreFile.isFile()
+
 android {
     namespace = "com.moryongo.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -19,14 +24,11 @@ android {
 
     signingConfigs {
         release {
-            // Android Studio will prompt you to create or select a keystore
-            // when you use Build > Generate Signed Bundle / APK.
-            // For command-line builds, fill these in or use a keystore.properties file.
-            if (project.hasProperty('RELEASE_STORE_FILE')) {
-                storeFile file(RELEASE_STORE_FILE)
-                storePassword RELEASE_STORE_PASSWORD
-                keyAlias RELEASE_KEY_ALIAS
-                keyPassword RELEASE_KEY_PASSWORD
+            if (uploadKeyReady) {
+                storeFile uploadStoreFile
+                storePassword System.getenv('MYAPP_UPLOAD_STORE_PASSWORD')
+                keyAlias System.getenv('MYAPP_UPLOAD_KEY_ALIAS')
+                keyPassword System.getenv('MYAPP_UPLOAD_KEY_PASSWORD')
             }
         }
     }
@@ -35,7 +37,7 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            if (project.hasProperty('RELEASE_STORE_FILE')) {
+            if (uploadKeyReady) {
                 signingConfig signingConfigs.release
             }
         }
@@ -64,6 +66,21 @@ dependencies {
 }
 
 apply from: 'capacitor.build.gradle'
+
+gradle.taskGraph.whenReady { graph ->
+    def releaseRequested = graph.allTasks.any { it.name.contains('Release') }
+    if (!releaseRequested || uploadKeyReady) {
+        return
+    }
+    def problems = []
+    if (!missingUploadKeyEnv.isEmpty()) {
+        problems << "Missing environment variables: ${missingUploadKeyEnv.join(', ')}"
+    }
+    if (uploadStoreFile == null || !uploadStoreFile.isFile()) {
+        problems << "MYAPP_UPLOAD_STORE_FILE does not point to an existing keystore file"
+    }
+    throw new GradleException("Release signing is not configured. A release build was requested but the upload key cannot be used. ${problems.join('. ')}. No unsigned release bundle was produced.")
+}
 
 try {
     def servicesJSON = file('google-services.json')
