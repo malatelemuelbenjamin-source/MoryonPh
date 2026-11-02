@@ -19,6 +19,9 @@ Usage:
 Environment variables (reads from .env or set directly):
     SUPABASE_URL
     SUPABASE_SERVICE_ROLE_KEY
+    ALLOWED_ORIGINS  (comma-separated list of trusted frontend origins for CORS,
+                      e.g. "https://moryongo.app,https://www.moryongo.app".
+                      Defaults to localhost only when unset — never "*".)
 """
 
 import os
@@ -818,11 +821,21 @@ def server_mode(port: int = 8000):
         sys.exit(1)
 
     app = FastAPI(title="Mory AI Assistant", version="1.0.0")
+
+    # CORS: read trusted origins from ALLOWED_ORIGINS (comma-separated).
+    # Falls back to localhost only when unset, so production never serves "*".
+    raw_origins = os.environ.get("ALLOWED_ORIGINS", "")
+    if raw_origins.strip():
+        allowed_origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
+    else:
+        allowed_origins = ["http://localhost:5173", "http://localhost:8000"]
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=allowed_origins,
+        allow_credentials=True,
         allow_methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["*"],
+        allow_headers=["Content-Type", "Authorization"],
     )
 
     @app.post("/ask")
