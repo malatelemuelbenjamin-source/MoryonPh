@@ -1,7 +1,7 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "moryonGoPh.app"
+    namespace = "com.moryongo.app"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
         applicationId "moryonGoPh.app"
