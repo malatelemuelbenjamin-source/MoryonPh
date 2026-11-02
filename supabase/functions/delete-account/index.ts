@@ -101,6 +101,15 @@ Deno.serve(async (req) => {
       }
     }
 
+    const { error: clearError } = await admin
+      .from("account_deletion_pending_files")
+      .delete()
+      .eq("user_id", user.id);
+    if (clearError) {
+      console.error("pending file list cleanup failed", clearError);
+      return json({ error: "We could not finish removing your uploaded files. Please try again." }, 500);
+    }
+
     const { error: deleteError } = await admin.auth.admin.deleteUser(user.id);
     if (deleteError) {
       console.error("auth user deletion failed", deleteError);

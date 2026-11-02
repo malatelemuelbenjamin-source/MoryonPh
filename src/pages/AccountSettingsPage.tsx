@@ -287,9 +287,15 @@ export function AccountSettingsPage() {
               <p className="flex items-center gap-1.5 text-sm font-bold text-red-700">
                 <Trash2 size={14} /> Delete Account
               </p>
-              <p className="text-xs text-ocean-600">
-                This permanently deletes your account and personal data: your profile, saved places and routes, itineraries, shared trip links, assistant conversations, alert and fare subscriptions, and event registrations. Reports and comments you submitted are removed too. This cannot be undone.
-              </p>
+              <div className="space-y-2 text-xs text-ocean-600">
+                <p>
+                  <span className="font-semibold text-ocean-800">Permanently deleted:</span> your profile and sign-in account, saved places and routes, itineraries and shared trip links, trip history, assistant conversations, subscriptions, event registrations, recent searches, and files you uploaded with reports.
+                </p>
+                <p>
+                  <span className="font-semibold text-ocean-800">Kept without your name:</span> reports, comments, and transport service submissions you sent. They will show as from an unknown user, and their text is not edited, so avoid personal details in them. Moderation records stay in place with your name removed.
+                </p>
+                <p className="font-semibold text-red-700">This cannot be undone. You will not be able to sign in to this account again.</p>
+              </div>
               {deleteError && <p role="alert" className="text-xs font-semibold text-red-700">{deleteError}</p>}
               <div className="flex gap-2">
                 <button

@@ -1,6 +1,10 @@
 {
   "projectId": "72426487",
   "functions": {
+    "delete-account": {
+      "hasChanged": false,
+      "hash": "bc188377aeab3cc8c5590804478d73b1c35661d7972bccf4179314ac7d28b337"
+    },
     "import-osm-roads": {
       "hasChanged": false,
       "hash": "5c9a5e6dce872b41b712852ae758837e690ad593f41601227dd123489fa9a15c"
@@ -12,10 +16,6 @@
     "weather-proxy": {
       "hasChanged": false,
       "hash": "14c02945eeb99454525b8b7a25f8f2ff10f2313c8cbeca7d2cce274b1bf24685"
-    },
-    "delete-account": {
-      "hasChanged": false,
-      "hash": "bedb4cdf12277d82884348a30eeaed307ee419d3f77d227935fe11474c5e3296"
     }
   }
 }
