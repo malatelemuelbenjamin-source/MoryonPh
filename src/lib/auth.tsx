@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { Session, User } from '@supabase/supabase-js'
+import type { AuthError, Session, User } from '@supabase/supabase-js'
 import { supabase } from './supabase'
 import type { UserProfile } from './types'
 
@@ -16,6 +16,28 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
+
+const NETWORK_ERROR = 'We could not reach the server. Check your connection and try again.'
+const EXISTING_ACCOUNT_ERROR = 'An account with this email already exists. Sign in instead.'
+
+function describeAuthError(error: AuthError): string {
+  switch (error.code) {
+    case 'invalid_credentials':
+      return 'Wrong email or password. Please try again.'
+    case 'user_already_exists':
+    case 'email_exists':
+      return EXISTING_ACCOUNT_ERROR
+    case 'weak_password':
+      return 'Password is too weak. Please choose a stronger one.'
+    case 'email_address_invalid':
+      return 'Please enter a valid email address.'
+    case 'over_email_send_rate_limit':
+    case 'over_request_rate_limit':
+      return 'Too many attempts. Please wait a moment and try again.'
+    default:
+      return error.message
+  }
+}
 
 async function ensureProfile(user: User): Promise<UserProfile | null> {
   const { data, error } = await supabase
@@ -84,19 +106,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [session?.user])
 
   const signIn = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    return { error: error?.message ?? null }
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      return { error: error ? describeAuthError(error) : null }
+    } catch {
+      return { error: NETWORK_ERROR }
+    }
   }, [])
 
   const signUp = useCallback(async (email: string, password: string, name: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { name } },
-    })
-    if (error) return { error: error.message }
-    if (!data.user) return { error: 'Sign-up failed.' }
-    return { error: null }
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { name } },
+      })
+      if (error) return { error: describeAuthError(error) }
+      if (!data.user) return { error: 'Sign-up failed. Please try again.' }
+      if (data.user.identities?.length === 0) return { error: EXISTING_ACCOUNT_ERROR }
+      if (!data.session) {
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+        if (signInError) return { error: describeAuthError(signInError) }
+      }
+      return { error: null }
+    } catch {
+      return { error: NETWORK_ERROR }
+    }
   }, [])
 
   const signOut = useCallback(async () => {
