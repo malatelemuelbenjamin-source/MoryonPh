@@ -1,7 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
@@ -26,7 +25,7 @@ function isStoredFileList(value: unknown): value is StoredFile[] {
   );
 }
 
-Deno.serve(async (req) => {
+async function handleRequest(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
@@ -123,4 +122,15 @@ Deno.serve(async (req) => {
     console.error("delete-account failed", cause);
     return json({ error: "We could not delete your account right now. Please try again." }, 500);
   }
+}
+
+const allowedOrigins = ["https://moryon-ph-6lty.vercel.app", "https://localhost", "http://localhost:5173"];
+
+Deno.serve(async (req: Request) => {
+  const response = await handleRequest(req);
+  const origin = req.headers.get("Origin");
+  const headers = new Headers(response.headers);
+  headers.append("Vary", "Origin");
+  if (origin && allowedOrigins.includes(origin)) headers.set("Access-Control-Allow-Origin", origin);
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 });

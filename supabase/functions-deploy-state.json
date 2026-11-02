@@ -3,19 +3,19 @@
   "functions": {
     "delete-account": {
       "hasChanged": false,
-      "hash": "bc188377aeab3cc8c5590804478d73b1c35661d7972bccf4179314ac7d28b337"
+      "hash": "4c7b1e891991eeb3147411f72bca493f5560ccca7ebc100f1d11ddd2d1a31efb"
     },
     "import-osm-roads": {
       "hasChanged": false,
-      "hash": "5c9a5e6dce872b41b712852ae758837e690ad593f41601227dd123489fa9a15c"
+      "hash": "b4805dbf2d4e8c921e1292e2b0d9530aac68a6ee646fbeaf17a51afeb9965fad"
     },
     "mory-ai": {
       "hasChanged": false,
-      "hash": "5d3ae37e89aafe7aaa9045ad7907839e7407618118d48dbac146fd5987d2ea42"
+      "hash": "0ba244aa2a16877da70c59b3b74032a8d25b957c70841617dff96350fe2bb85c"
     },
     "weather-proxy": {
       "hasChanged": false,
-      "hash": "14c02945eeb99454525b8b7a25f8f2ff10f2313c8cbeca7d2cce274b1bf24685"
+      "hash": "3dedd8d457a36299bc84fb69f58b83bb3c3a1559171060300b30b1e48acd6acc"
     }
   }
 }

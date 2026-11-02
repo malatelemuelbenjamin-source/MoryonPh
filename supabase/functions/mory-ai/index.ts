@@ -1,7 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
@@ -655,7 +654,7 @@ async function callOpenAI(messages: { role: string; content: string }[]): Promis
 // Edge function handler
 // ---------------------------------------------------------------------------
 
-Deno.serve(async (req: Request) => {
+async function handleRequest(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
@@ -766,4 +765,15 @@ Deno.serve(async (req: Request) => {
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
+}
+
+const allowedOrigins = ["https://moryon-ph-6lty.vercel.app", "https://localhost", "http://localhost:5173"];
+
+Deno.serve(async (req: Request) => {
+  const response = await handleRequest(req);
+  const origin = req.headers.get("Origin");
+  const headers = new Headers(response.headers);
+  headers.append("Vary", "Origin");
+  if (origin && allowedOrigins.includes(origin)) headers.set("Access-Control-Allow-Origin", origin);
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 });

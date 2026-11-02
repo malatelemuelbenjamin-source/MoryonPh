@@ -1,7 +1,6 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
@@ -389,7 +388,7 @@ async function runImport(admin: SupabaseClient, userId: string | null): Promise<
   });
 }
 
-Deno.serve(async (req: Request) => {
+async function handleRequest(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
@@ -413,4 +412,15 @@ Deno.serve(async (req: Request) => {
     console.error("import-osm-roads failed:", errorMessage(err));
     return json({ error: `The road import failed: ${errorMessage(err)}` }, 500);
   }
+}
+
+const allowedOrigins = ["https://moryon-ph-6lty.vercel.app", "https://localhost", "http://localhost:5173"];
+
+Deno.serve(async (req: Request) => {
+  const response = await handleRequest(req);
+  const origin = req.headers.get("Origin");
+  const headers = new Headers(response.headers);
+  headers.append("Vary", "Origin");
+  if (origin && allowedOrigins.includes(origin)) headers.set("Access-Control-Allow-Origin", origin);
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 });
