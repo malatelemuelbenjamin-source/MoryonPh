@@ -1,31 +1,27 @@
 
-android {
-    // Panatilihin ang existing compileSdk, namespace,
-    // defaultConfig at iba pang settings mo.
+// Top-level build file for the Android project.
 
-    signingConfigs {
-        release {
-            def keystorePath = System.getenv("CM_KEYSTORE_PATH")
-            if (keystorePath != null) {
-                storeFile file(keystorePath)
-                storePassword System.getenv("CM_KEYSTORE_PASSWORD")
-                keyAlias System.getenv("CM_KEY_ALIAS")
-                keyPassword System.getenv("CM_KEY_PASSWORD")
-            }
-        }
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
     }
 
-    defaultConfig {
-        applicationId "moryonGoPh.app"
-        versionCode 1
-        versionName "1.0.0"
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.13.0'
+        classpath 'com.google.gms:google-services:4.4.4'
     }
+}
 
-    buildTypes {
-        release {
-            if (System.getenv("CM_KEYSTORE_PATH") != null) {
-                signingConfig signingConfigs.release
-            }
-        }
+apply from: "variables.gradle"
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
     }
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.layout.buildDirectory
 }
