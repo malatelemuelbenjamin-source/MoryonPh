@@ -19,6 +19,7 @@ import { useAuth } from '../lib/auth'
 import { MUNICIPALITIES } from '../lib/explore'
 import { formatRelativeTime } from '../lib/labels'
 import {
+  deleteAccount,
   updateProfile,
   type CommuterPreferences,
 } from '../lib/profileSettings'
@@ -38,6 +39,8 @@ export function AccountSettingsPage() {
   const [error, setError] = useState<string | null>(null)
   const [confirmSignOut, setConfirmSignOut] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     if (profile) {
@@ -73,6 +76,19 @@ export function AccountSettingsPage() {
   }, [user, name, username, language, municipality, defaultView, refreshProfile])
 
   async function doSignOut() {
+    await signOut()
+    navigate('/')
+  }
+
+  async function handleDeleteAccount() {
+    setDeleting(true)
+    setDeleteError(null)
+    const result = await deleteAccount()
+    if (!result.success) {
+      setDeleting(false)
+      setDeleteError(result.error ?? 'We could not delete your account right now. Please try again.')
+      return
+    }
     await signOut()
     navigate('/')
   }
@@ -272,23 +288,19 @@ export function AccountSettingsPage() {
                 <Trash2 size={14} /> Delete Account
               </p>
               <p className="text-xs text-ocean-600">
-                This will permanently delete your profile, saved places, and saved routes. This action cannot be undone.
-                Account deletion requires verification through Supabase's secure process.
+                This permanently deletes your account and personal data: your profile, saved places and routes, itineraries, shared trip links, assistant conversations, alert and fare subscriptions, and event registrations. Reports and comments you submitted are removed too. This cannot be undone.
               </p>
+              {deleteError && <p role="alert" className="text-xs font-semibold text-red-700">{deleteError}</p>}
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => void (async () => {
-                    if (!user) return
-                    // Sign out — actual deletion handled server-side via support
-                    await signOut()
-                    navigate('/')
-                  })}
-                  className="flex-1 rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white"
+                  disabled={deleting}
+                  onClick={() => void handleDeleteAccount()}
+                  className="flex-1 rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
                 >
-                  Confirm & Sign Out
+                  {deleting ? 'Deleting...' : 'Permanently delete'}
                 </button>
-                <button type="button" onClick={() => setConfirmDelete(false)} className="flex-1 rounded-xl bg-ocean-50 px-4 py-2 text-sm font-semibold text-ocean-700">
+                <button type="button" disabled={deleting} onClick={() => { setConfirmDelete(false); setDeleteError(null) }} className="flex-1 rounded-xl bg-ocean-50 px-4 py-2 text-sm font-semibold text-ocean-700 disabled:opacity-60">
                   Cancel
                 </button>
               </div>

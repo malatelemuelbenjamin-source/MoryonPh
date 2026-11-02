@@ -1,6 +1,10 @@
 {
   "projectId": "72426487",
   "functions": {
+    "import-osm-roads": {
+      "hasChanged": false,
+      "hash": "5c9a5e6dce872b41b712852ae758837e690ad593f41601227dd123489fa9a15c"
+    },
     "mory-ai": {
       "hasChanged": false,
       "hash": "5d3ae37e89aafe7aaa9045ad7907839e7407618118d48dbac146fd5987d2ea42"
@@ -9,9 +13,9 @@
       "hasChanged": false,
       "hash": "14c02945eeb99454525b8b7a25f8f2ff10f2313c8cbeca7d2cce274b1bf24685"
     },
-    "import-osm-roads": {
+    "delete-account": {
       "hasChanged": false,
-      "hash": "5c9a5e6dce872b41b712852ae758837e690ad593f41601227dd123489fa9a15c"
+      "hash": "bedb4cdf12277d82884348a30eeaed307ee419d3f77d227935fe11474c5e3296"
     }
   }
 }

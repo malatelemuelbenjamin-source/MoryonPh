@@ -103,21 +103,32 @@ export async function sendPasswordReset(email: string): Promise<{ success: boole
 }
 
 // ---- Delete account ---------------------------------------------------------
-// Client can delete auth user via Supabase if the user is authenticated.
-// This also cascades to the users table row (RLS-protected).
-export async function deleteAccount(userId: string): Promise<{ success: boolean; error?: string }> {
-  // Delete the profile row first (user owns it via RLS)
-  await supabase.from('users').delete().eq('id', userId)
-  // Delete the auth user — requires the user to be signed in
-  const { error } = await supabase.auth.admin?.deleteUser?.(userId) ?? { error: null }
-  // If admin API isn't available client-side, instruct user to use Supabase dashboard
-  if (error) {
-    return {
-      success: false,
-      error: 'Account deletion requires verification. Please contact support or use the account settings in the auth dashboard to complete deletion.',
-    }
+
+const GENERIC_DELETE_ERROR = 'We could not delete your account right now. Please try again.'
+
+export async function deleteAccount(): Promise<{ success: boolean; error?: string }> {
+  const { data: sessionData } = await supabase.auth.getSession()
+  const accessToken = sessionData.session?.access_token
+  if (!accessToken) {
+    return { success: false, error: 'You need to be signed in to delete your account.' }
   }
-  return { success: true }
+
+  try {
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-account`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+      },
+    })
+    const body = (await response.json().catch(() => null)) as { success?: unknown; error?: unknown } | null
+    if (!response.ok || body?.success !== true) {
+      return { success: false, error: typeof body?.error === 'string' ? body.error : GENERIC_DELETE_ERROR }
+    }
+    return { success: true }
+  } catch {
+    return { success: false, error: 'We could not reach the server. Check your connection and try again.' }
+  }
 }
 
 // ---- Username validation ----------------------------------------------------

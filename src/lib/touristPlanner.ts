@@ -221,50 +221,18 @@ export async function fetchItineraryDetail(id: string): Promise<TouristItinerary
 // ---- Fetch shared itinerary (public, by token) ---------------------------
 
 export async function fetchSharedItinerary(token: string): Promise<TouristItineraryWithDetails | null> {
-  const { data: iti, error } = await supabase
-    .from('tourist_itineraries')
-    .select('*, starting_location:locations!starting_location_id(id, name, municipality)')
-    .eq('share_token', token)
-    .eq('is_shared', true)
-    .neq('status', 'archived')
-    .maybeSingle()
+  const { data, error } = await supabase.rpc('get_shared_itinerary', { p_token: token })
 
-  if (error || !iti) {
+  if (error || !data || typeof data !== 'object' || (data as { status?: unknown }).status !== 'ok') {
     return null
   }
 
-  const itinerary = iti as TouristItineraryWithDetails
+  const itinerary = (data as { itinerary?: TouristItineraryWithDetails }).itinerary
+  if (!itinerary || !Array.isArray(itinerary.days) || !Array.isArray(itinerary.legs)) {
+    return null
+  }
 
-  const { data: stops } = await supabase
-    .from('tourist_itinerary_stops')
-    .select('*, destination:destinations(id, name, municipality, latitude, longitude, entrance_fee, opening_hours, verification_status), location:locations(id, name, municipality, latitude, longitude)')
-    .eq('itinerary_id', itinerary.id)
-    .order('stop_order', { ascending: true })
-
-  const { data: days } = await supabase
-    .from('tourist_itinerary_days')
-    .select('*')
-    .eq('itinerary_id', itinerary.id)
-    .order('day_number', { ascending: true })
-
-  const { data: legs } = await supabase
-    .from('tourist_itinerary_legs')
-    .select('*, route:routes(id, route_name, route_code, estimated_duration_minutes), transport_mode:transport_modes(id, name, code, icon), from_stop:tourist_itinerary_stops!from_stop_id(id, custom_title, destination_id, location_id), to_stop:tourist_itinerary_stops!to_stop_id(id, custom_title, destination_id, location_id)')
-    .eq('itinerary_id', itinerary.id)
-    .order('leg_order', { ascending: true })
-
-  const dayRows = (days ?? []) as TouristItineraryDayRow[]
-  const stopRows = (stops ?? []) as ItineraryStopWithDetails[]
-  const legRows = (legs ?? []) as ItineraryLegWithDetails[]
-
-  itinerary.days = dayRows.map((d) => ({
-    ...d,
-    stops: stopRows.filter((s) => s.itinerary_day_id === d.id),
-  }))
-  itinerary.legs = legRows
-  itinerary.expenses = []
-
-  return itinerary
+  return { ...itinerary, expenses: [] }
 }
 
 // ---- Update itinerary ----------------------------------------------------
