@@ -115,11 +115,10 @@ export async function fetchWeather(
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
-  // Attach anon key if available
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
-  if (anonKey) {
-    headers['Authorization'] = `Bearer ${anonKey}`
-    headers['apikey'] = anonKey
+  // Attach publishable key for project identification
+  const apiKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+  if (apiKey) {
+    headers['apikey'] = apiKey
   }
 
   try {

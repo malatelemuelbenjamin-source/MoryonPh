@@ -218,13 +218,13 @@ async function checkConnection(): Promise<ConnectionStatus> {
     const start = Date.now()
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), SLOW_THRESHOLD_MS)
-    const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/transport_modes?select=id&limit=1`, {
-      headers: { apikey: import.meta.env.VITE_SUPABASE_ANON_KEY },
-      signal: controller.signal,
-    })
+    const { error, count } = await supabase
+      .from('transport_modes')
+      .select('id', { count: 'exact', head: true })
+      .limit(1)
     clearTimeout(timeout)
     const elapsed = Date.now() - start
-    if (!res.ok) return 'offline'
+    if (error || count === null) return 'offline'
     return elapsed > 3000 ? 'slow' : 'online'
   } catch {
     return 'offline'
