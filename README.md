@@ -114,7 +114,7 @@ The following permissions are declared in `AndroidManifest.xml`:
 
 ### App ID
 
-- **Package:** `com.moryongo.app`
+- **Package:** `moryonGoPh.app`
 - **App name:** MoryonGo
 
 ### Release Signing Certificate
@@ -204,7 +204,7 @@ This is a Vite SPA deployed to any static host:
 - [ ] Create Play Store listing with app icon, screenshots, description
 - [ ] Set content rating questionnaire
 - [ ] Add privacy policy URL
-- [ ] Configure Supabase auth redirect URLs to include `com.moryongo.app://`
+- [ ] Configure Supabase auth redirect URLs to include `moryonGoPh.app://`
 - [ ] Test on at least one physical Android device
 - [ ] Set app version code and version name in `android/app/build.gradle`
 
