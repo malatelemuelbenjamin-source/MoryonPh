@@ -42,15 +42,25 @@ jobs:
       - name: Prepare upload keystore
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          MYAPP_UPLOAD_STORE_PASSWORD: ${{ secrets.MYAPP_UPLOAD_STORE_PASSWORD }}
         run: |
+          set -e
           if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
-            echo "Missing ANDROID_KEYSTORE_BASE64 secret"
+            echo "Missing keystore secret"
             exit 1
           fi
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/upload-key.jks"
-          test -s "$RUNNER_TEMP/upload-key.jks"
 
-      - name: Build signed Android App Bundle
+          CLEAN_KEY=$(printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]')
+          printf '%s' "$CLEAN_KEY" | base64 --decode > "$RUNNER_TEMP/upload-key.jks"
+
+          test -s "$RUNNER_TEMP/upload-key.jks"
+          keytool -list \
+            -keystore "$RUNNER_TEMP/upload-key.jks" \
+            -storepass "$MYAPP_UPLOAD_STORE_PASSWORD"
+
+          echo "Keystore validation successful."
+
+- name: Build signed Android App Bundle
         env:
           MYAPP_UPLOAD_STORE_FILE: ${{ runner.temp }}/upload-key.jks
           MYAPP_UPLOAD_STORE_PASSWORD: ${{ secrets.MYAPP_UPLOAD_STORE_PASSWORD }}
