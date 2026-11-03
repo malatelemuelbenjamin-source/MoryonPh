@@ -121,7 +121,7 @@ The following permissions are declared in `AndroidManifest.xml`:
 
 - **SHA-1 fingerprint:** `47:B2:D6:B2:2A:F8:54:84:31:1B:A4:D7:EC:23:14:3A:9C:6C:20:F4`
 
-Register this fingerprint for the `com.moryongo.app` Android app in Google Cloud Console (OAuth Android client or restricted Maps key) and in Play Console. If the app uses Play App Signing, use the app signing certificate SHA-1 shown under Play Console > App integrity, which can differ from the upload key used to build the AAB.
+Register this fingerprint for the `moryonGoPh.app` Android app in Google Cloud Console (OAuth Android client or restricted Maps key) and in Play Console. If the app uses Play App Signing, use the app signing certificate SHA-1 shown under Play Console > App integrity, which can differ from the upload key used to build the AAB.
 
 ## Environment Variables
 
