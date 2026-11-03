@@ -6,7 +6,7 @@ def uploadStoreFile = System.getenv('MYAPP_UPLOAD_STORE_FILE') ? file(System.get
 def uploadKeyReady = missingUploadKeyEnv.isEmpty() && uploadStoreFile != null && uploadStoreFile.isFile()
 
 android {
-    namespace = "com.moryongo.app"
+    namespace = "moryonGoPh.app"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
         applicationId "moryonGoPh.app"

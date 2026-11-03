@@ -2,6 +2,6 @@
 <resources>
     <string name="app_name">MoryonGo</string>
     <string name="title_activity_main">MoryonGo</string>
-    <string name="package_name">com.moryongo.app</string>
-    <string name="custom_url_scheme">com.moryongo.app</string>
+    <string name="package_name">moryonGoPh.app</string>
+    <string name="custom_url_scheme">moryonGoPh.app</string>
 </resources>

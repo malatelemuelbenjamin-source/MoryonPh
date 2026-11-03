@@ -1,4 +1,4 @@
-package com.moryongo.app;
+package moryonGoPh.app;
 
 import com.getcapacitor.BridgeActivity;
 
