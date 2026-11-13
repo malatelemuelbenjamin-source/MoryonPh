@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
+import { useAuth } from './auth'
 
 export type GpsStatus = 'unknown' | 'prompt' | 'granted' | 'denied' | 'unavailable'
 
@@ -157,6 +158,14 @@ export function LocationProvider({ children }: { children: ReactNode }) {
       { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 },
     )
   }, [watchId, startWatching])
+
+  // Auto-request location when a signed-in user is detected and GPS isn't granted yet.
+  const { user } = useAuth()
+  useEffect(() => {
+    if (user && status === 'prompt') {
+      void requestPermission()
+    }
+  }, [user, status, requestPermission])
 
   // Initial permission probe (does not prompt unless state is "prompt").
   useEffect(() => {

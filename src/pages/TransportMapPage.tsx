@@ -39,6 +39,9 @@ import { verificationClasses, VERIFICATION_LABELS, formatRelativeTime } from '..
 import { useAuth } from '../lib/auth'
 import type { LocationRow } from '../lib/types'
 import { DigitalTwinGlobe } from '../components/DigitalTwinGlobe'
+import { GoogleMapsView } from '../components/GoogleMapsView'
+import { useLocation } from '../lib/location'
+import { isGoogleMapsConfigured } from '../lib/googleMaps'
 
 type LoadState = 'loading' | 'done' | 'error'
 
@@ -71,6 +74,7 @@ function locationTypeIcon(type: string): typeof MapPin {
 export function TransportMapPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { coords, status: gpsStatusShared, requestPermission } = useLocation()
 
   const [locations, setLocations] = useState<MapLocation[]>([])
   const [routes, setRoutes] = useState<MapRoute[]>([])
@@ -86,10 +90,11 @@ export function TransportMapPage() {
   const [selectedLocation, setSelectedLocation] = useState<MapLocation | null>(null)
   const [savedPlaceId, setSavedPlaceId] = useState<string | null>(null)
   const [savingPlace, setSavingPlace] = useState(false)
-  const [gpsStatus, setGpsStatus] = useState<'idle' | 'loading' | 'granted' | 'denied'>('idle')
-  const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [viewMode, setViewMode] = useState<'map' | 'list'>('list')
-  const [mapEngine, setMapEngine] = useState<'grid' | 'globe'>('grid')
+  const [mapEngine, setMapEngine] = useState<'google' | 'grid' | 'globe'>(isGoogleMapsConfigured() ? 'google' : 'grid')
+
+  const gpsCoords = coords ? { lat: coords.lat, lng: coords.lng } : null
+  const gpsGranted = gpsStatusShared === 'granted'
 
   const loadData = useCallback(async () => {
     setLoadState('loading')
@@ -198,19 +203,7 @@ export function TransportMapPage() {
   }
 
   const handleGps = () => {
-    setGpsStatus('loading')
-    if (!navigator.geolocation) {
-      setGpsStatus('denied')
-      return
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setGpsCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude })
-        setGpsStatus('granted')
-      },
-      () => setGpsStatus('denied'),
-      { enableHighAccuracy: true, timeout: 10000 },
-    )
+    void requestPermission()
   }
 
   const handleSearchResultClick = (loc: LocationRow) => {
@@ -349,19 +342,22 @@ export function TransportMapPage() {
           <button
             type="button"
             onClick={handleGps}
-            disabled={gpsStatus === 'loading'}
+            disabled={gpsStatusShared === 'unknown' || gpsStatusShared === 'granted'}
             className="flex items-center gap-2 rounded-xl bg-ocean-50 px-3 py-2 text-sm font-semibold text-ocean-700 hover:bg-ocean-100"
           >
-            {gpsStatus === 'loading' ? <Loader2 size={16} className="animate-spin" /> : <LocateFixed size={16} />}
-            Current Location
+            {gpsStatusShared === 'unknown' ? <Loader2 size={16} className="animate-spin" /> : <LocateFixed size={16} />}
+            {gpsGranted ? 'Location Active' : 'Current Location'}
           </button>
-          {gpsStatus === 'granted' && gpsCoords && (
+          {gpsGranted && gpsCoords && (
             <span className="text-xs text-leaf-700">
               {gpsCoords.lat.toFixed(4)}, {gpsCoords.lng.toFixed(4)}
             </span>
           )}
-          {gpsStatus === 'denied' && (
+          {gpsStatusShared === 'denied' && (
             <span className="text-xs text-terra-600">Location permission denied. You can still search manually.</span>
+          )}
+          {gpsStatusShared === 'unavailable' && (
+            <span className="text-xs text-terra-600">GPS is not available on this device.</span>
           )}
         </section>
 
@@ -411,11 +407,21 @@ export function TransportMapPage() {
             {viewMode === 'map' && (
               <section className="card space-y-3">
                 <div className="flex flex-wrap gap-1.5">
-                  <FilterChip active={mapEngine === 'grid'} onClick={() => setMapEngine('grid')} label="2D Map" icon={MapPin} />
+                  {isGoogleMapsConfigured() && (
+                    <FilterChip active={mapEngine === 'google'} onClick={() => setMapEngine('google')} label="Google Maps" icon={MapPin} />
+                  )}
+                  <FilterChip active={mapEngine === 'grid'} onClick={() => setMapEngine('grid')} label="2D Grid" icon={MapPin} />
                   <FilterChip active={mapEngine === 'globe'} onClick={() => setMapEngine('globe')} label="3D Globe" icon={Globe} />
                 </div>
                 {mapEngine === 'globe' ? (
                   <DigitalTwinGlobe />
+                ) : mapEngine === 'google' ? (
+                  <GoogleMapsView
+                    locations={filteredLocations}
+                    selectedLocation={selectedLocation}
+                    onSelect={handleLocationSelect}
+                    gpsCoords={gpsCoords}
+                  />
                 ) : (
                   <>
                 <div className="relative h-80 overflow-hidden rounded-xl bg-ocean-50">
