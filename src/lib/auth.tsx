@@ -11,6 +11,8 @@ interface AuthContextValue {
   loading: boolean
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
   signUp: (email: string, password: string, name: string) => Promise<{ error: string | null }>
+  requestPasswordReset: (email: string) => Promise<{ error: string | null }>
+  updatePassword: (password: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
 }
@@ -29,6 +31,8 @@ function describeAuthError(error: AuthError): string {
       return EXISTING_ACCOUNT_ERROR
     case 'weak_password':
       return 'Password is too weak. Please choose a stronger one.'
+    case 'same_password':
+      return 'Your new password must be different from your old one.'
     case 'email_address_invalid':
       return 'Please enter a valid email address.'
     case 'over_email_send_rate_limit':
@@ -134,6 +138,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const requestPasswordReset = useCallback(async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+      return { error: error ? describeAuthError(error) : null }
+    } catch {
+      return { error: NETWORK_ERROR }
+    }
+  }, [])
+
+  const updatePassword = useCallback(async (password: string) => {
+    try {
+      const { error } = await supabase.auth.updateUser({ password })
+      return { error: error ? describeAuthError(error) : null }
+    } catch {
+      return { error: NETWORK_ERROR }
+    }
+  }, [])
+
   const signOut = useCallback(async () => {
     await supabase.auth.signOut()
     setProfile(null)
@@ -147,10 +171,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       signIn,
       signUp,
+      requestPasswordReset,
+      updatePassword,
       signOut,
       refreshProfile,
     }),
-    [session, profile, loading, signIn, signUp, signOut, refreshProfile],
+    [
+      session, profile, loading, signIn, signUp, requestPasswordReset,
+      updatePassword, signOut, refreshProfile,
+    ],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

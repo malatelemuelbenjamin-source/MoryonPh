@@ -3,6 +3,7 @@ import { HomePage } from './pages/HomePage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 import { CmsPageView } from './pages/CmsPageView'
 import { AuthPage } from './pages/AuthPage'
+import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { RoutePlannerPage } from './pages/RoutePlannerPage'
 import { RouteDetailPage } from './pages/RouteDetailPage'
@@ -87,6 +88,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/auth" element={<AuthPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/plan" element={<RoutePlannerPage />} />
         <Route path="/route-detail" element={<RouteDetailPage />} />
