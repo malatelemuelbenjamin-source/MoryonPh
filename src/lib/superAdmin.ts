@@ -327,7 +327,7 @@ export async function updateMedia(
     return { success: false, error: error.message }
   }
 
-  await logAction('media_updated', 'media_asset', id, `Updated ${updates.title ?? 'media'}`, before ?? null, updates as Record<string, unknown>)
+  await logAction('media_updated', 'media_asset', id, `Updated ${updates.title ?? 'media'}`, before ? (before as unknown as Record<string, unknown>) : null, updates as Record<string, unknown>)
   return { success: true }
 }
 

@@ -189,6 +189,14 @@ export function AdminDashboardPage() {
           >
             Overview
           </Link>
+          <Link
+            to="/admin/control-center"
+            onClick={() => setSidebarOpen(false)}
+            className="flex items-center gap-2 rounded-xl bg-terra-500 px-3 py-2 text-xs font-bold text-white hover:bg-terra-600 transition"
+          >
+            <ShieldCheck size={14} />
+            Control Center
+          </Link>
           {ADMIN_MODULES.map((mod) => {
             const Icon = ICON_MAP[mod.icon] ?? FileText
             const badge = mod.metricKey && metrics ? metrics[mod.metricKey] : undefined

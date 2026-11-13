@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Users, UserCheck, ShieldCheck, Image, Film, FileText,
-  FilePlus2, Flag, Bell, BarChart3, Settings, Lock, ScrollText, Database,
+  FilePlus2, Flag, Bell, BarChart3, Settings, Lock, ScrollText,
   Activity, UserCircle, LogOut, Loader2, Upload, Trash2, Star, Eye, EyeOff,
   Search, CheckCircle, XCircle, AlertTriangle, Send, X,
 } from 'lucide-react'
@@ -1029,8 +1029,8 @@ function AuditSection() {
 
   useEffect(() => {
     void (async () => {
-      const { adminDashboard } = await import('../lib/adminDashboard')
-      const result = await adminDashboard.fetchAllAdminAuditLogs(1, 50)
+      const { fetchAllAdminAuditLogs } = await import('../lib/adminDashboard')
+      const result = await fetchAllAdminAuditLogs(1, 50)
       setRows(result.rows.map((r) => ({ id: r.id, action: r.action, entity_type: r.entity_type, summary: r.summary, created_at: r.created_at })))
       setLoading(false)
     })()

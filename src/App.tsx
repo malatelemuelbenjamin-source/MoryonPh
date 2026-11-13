@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
 import { HomePage } from './pages/HomePage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
+import { CmsPageView } from './pages/CmsPageView'
 import { AuthPage } from './pages/AuthPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { RoutePlannerPage } from './pages/RoutePlannerPage'
@@ -164,6 +165,7 @@ export default function App() {
             element={<PlaceholderPage title={meta.title} description={meta.description} />}
           />
         ))}
+        <Route path="/p/:slug" element={<CmsPageView />} />
         <Route path="*" element={<PlaceholderPage title="Coming Soon" />} />
       </Routes>
       <ConnectionStatusBanner />
