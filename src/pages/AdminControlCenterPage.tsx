@@ -18,7 +18,10 @@ import {
   fetchControlCenterMetrics, type ControlCenterMetrics,
   fetchAdminRoles, type AdminRoleRow,
   fetchLoginAudit, type LoginAuditRow,
+  claimRootOwner,
 } from '../lib/superAdmin'
+
+const OWNER_EMAIL = 'lemuelbenjamin.malate@gmail.com'
 
 type Section =
   | 'overview' | 'users' | 'registrations' | 'admins'
@@ -103,14 +106,33 @@ export function AdminControlCenterPage() {
   const [loading, setLoading] = useState(true)
   const [section, setSection] = useState<Section>('overview')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [claiming, setClaiming] = useState(false)
+  const [claimError, setClaimError] = useState<string | null>(null)
+
+  const loadRoles = useCallback(async () => {
+    const r = await checkRoles()
+    setRoles(r)
+    setLoading(false)
+  }, [])
 
   useEffect(() => {
-    void (async () => {
-      const r = await checkRoles()
-      setRoles(r)
-      setLoading(false)
-    })()
-  }, [])
+    void loadRoles()
+  }, [loadRoles])
+
+  const isOwnerAccount = user?.email?.toLowerCase() === OWNER_EMAIL
+
+  const handleClaimOwner = async () => {
+    setClaiming(true)
+    setClaimError(null)
+    const err = await claimRootOwner()
+    if (err) {
+      setClaimError(err)
+      setClaiming(false)
+      return
+    }
+    await loadRoles()
+    setClaiming(false)
+  }
 
   if (loading) {
     return (
@@ -129,6 +151,14 @@ export function AdminControlCenterPage() {
           <p className="mt-1 text-sm text-ocean-600">
             This control center requires administrator access. Your account does not have permission.
           </p>
+          {isOwnerAccount && (
+            <div className="mt-4">
+              <button onClick={handleClaimOwner} disabled={claiming} className="btn-primary">
+                {claiming ? 'Activating...' : 'Activate owner access'}
+              </button>
+              {claimError && <p className="mt-2 text-sm text-terra-700">{claimError}</p>}
+            </div>
+          )}
           <button onClick={() => navigate('/')} className="btn-secondary mt-4">Back to Home</button>
         </div>
       </div>

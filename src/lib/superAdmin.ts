@@ -22,6 +22,13 @@ export async function checkRoles(): Promise<RoleCheckResult> {
   }
 }
 
+export async function claimRootOwner(): Promise<string | null> {
+  const { error } = await supabase.rpc('claim_root_owner')
+  if (error) return error.message
+  const { error: refreshError } = await supabase.auth.refreshSession()
+  return refreshError?.message ?? null
+}
+
 // ---- Audit logging ---------------------------------------------------------
 
 export async function logAction(
