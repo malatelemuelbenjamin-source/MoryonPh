@@ -85,22 +85,6 @@ export function LocationProvider({ children }: { children: ReactNode }) {
   })
   const [watchId, setWatchId] = useState<number | null>(null)
 
-  // Initial permission probe (does not prompt unless state is "prompt").
-  useEffect(() => {
-    if (!('permissions' in navigator) || !navigator.geolocation) {
-      setStatus('unavailable')
-      return
-    }
-    navigator.permissions
-      .query({ name: 'geolocation' as PermissionName })
-      .then((result) => {
-        if (result.state === 'granted') setStatus('granted')
-        else if (result.state === 'denied') setStatus('denied')
-        else setStatus('prompt')
-      })
-      .catch(() => setStatus('prompt'))
-  }, [])
-
   const startWatching = useCallback(() => {
     if (!navigator.geolocation) {
       setStatus('unavailable')
@@ -122,8 +106,9 @@ export function LocationProvider({ children }: { children: ReactNode }) {
       (err) => {
         if (err.code === err.PERMISSION_DENIED) setStatus('denied')
         else if (err.code === err.POSITION_UNAVAILABLE) setStatus('unavailable')
+        // On timeout, keep the last known status/coords so GPS doesn't flip to "off".
       },
-      { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 },
     )
     setWatchId(id)
   }, [watchId])
@@ -132,6 +117,15 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     if (watchId !== null) {
       navigator.geolocation.clearWatch(watchId)
       setWatchId(null)
+    }
+  }, [watchId])
+
+  // Stop watching when the provider unmounts.
+  useEffect(() => {
+    return () => {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId)
+      }
     }
   }, [watchId])
 
@@ -151,14 +145,39 @@ export function LocationProvider({ children }: { children: ReactNode }) {
         } else {
           setReverse({ municipality: null, barangay: null })
         }
+        // Start continuous tracking after the user grants permission.
+        if (watchId === null) {
+          startWatching()
+        }
       },
       (err) => {
         if (err.code === err.PERMISSION_DENIED) setStatus('denied')
         else if (err.code === err.POSITION_UNAVAILABLE) setStatus('unavailable')
       },
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 },
     )
-  }, [])
+  }, [watchId, startWatching])
+
+  // Initial permission probe (does not prompt unless state is "prompt").
+  useEffect(() => {
+    if (!('permissions' in navigator) || !navigator.geolocation) {
+      setStatus('unavailable')
+      return
+    }
+    navigator.permissions
+      .query({ name: 'geolocation' as PermissionName })
+      .then((result) => {
+        if (result.state === 'granted') {
+          setStatus('granted')
+          startWatching()
+        } else if (result.state === 'denied') {
+          setStatus('denied')
+        } else {
+          setStatus('prompt')
+        }
+      })
+      .catch(() => setStatus('prompt'))
+  }, [startWatching])
 
   const value = useMemo<LocationContextValue>(
     () => ({
