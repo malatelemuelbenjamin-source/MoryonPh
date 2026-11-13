@@ -39,9 +39,8 @@ import { verificationClasses, VERIFICATION_LABELS, formatRelativeTime } from '..
 import { useAuth } from '../lib/auth'
 import type { LocationRow } from '../lib/types'
 import { DigitalTwinGlobe } from '../components/DigitalTwinGlobe'
-import { GoogleMapsView } from '../components/GoogleMapsView'
+import { LeafletMapView } from '../components/LeafletMapView'
 import { useLocation } from '../lib/location'
-import { isGoogleMapsConfigured } from '../lib/googleMaps'
 
 type LoadState = 'loading' | 'done' | 'error'
 
@@ -91,7 +90,7 @@ export function TransportMapPage() {
   const [savedPlaceId, setSavedPlaceId] = useState<string | null>(null)
   const [savingPlace, setSavingPlace] = useState(false)
   const [viewMode, setViewMode] = useState<'map' | 'list'>('list')
-  const [mapEngine, setMapEngine] = useState<'google' | 'grid' | 'globe'>(isGoogleMapsConfigured() ? 'google' : 'grid')
+  const [mapEngine, setMapEngine] = useState<'map' | 'grid' | 'globe'>('map')
 
   const gpsCoords = coords ? { lat: coords.lat, lng: coords.lng } : null
   const gpsGranted = gpsStatusShared === 'granted'
@@ -407,16 +406,14 @@ export function TransportMapPage() {
             {viewMode === 'map' && (
               <section className="card space-y-3">
                 <div className="flex flex-wrap gap-1.5">
-                  {isGoogleMapsConfigured() && (
-                    <FilterChip active={mapEngine === 'google'} onClick={() => setMapEngine('google')} label="Google Maps" icon={MapPin} />
-                  )}
+                  <FilterChip active={mapEngine === 'map'} onClick={() => setMapEngine('map')} label="Map" icon={MapPin} />
                   <FilterChip active={mapEngine === 'grid'} onClick={() => setMapEngine('grid')} label="2D Grid" icon={MapPin} />
                   <FilterChip active={mapEngine === 'globe'} onClick={() => setMapEngine('globe')} label="3D Globe" icon={Globe} />
                 </div>
                 {mapEngine === 'globe' ? (
                   <DigitalTwinGlobe />
-                ) : mapEngine === 'google' ? (
-                  <GoogleMapsView
+                ) : mapEngine === 'map' ? (
+                  <LeafletMapView
                     locations={filteredLocations}
                     selectedLocation={selectedLocation}
                     onSelect={handleLocationSelect}
