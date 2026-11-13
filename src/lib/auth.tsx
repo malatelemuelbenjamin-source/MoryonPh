@@ -43,6 +43,16 @@ function describeAuthError(error: AuthError): string {
   }
 }
 
+const LOCAL_HOSTNAMES = ['localhost', '127.0.0.1']
+
+// Local addresses are not reachable from the user's email client, so the reset
+// link falls back to the project's published Site URL instead.
+function passwordResetRedirect(): string | undefined {
+  const { origin, hostname } = window.location
+  if (LOCAL_HOSTNAMES.includes(hostname)) return undefined
+  return `${origin}/reset-password`
+}
+
 async function ensureProfile(user: User): Promise<UserProfile | null> {
   const { data, error } = await supabase
     .from('users')
@@ -141,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const requestPasswordReset = useCallback(async (email: string) => {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: passwordResetRedirect(),
       })
       return { error: error ? describeAuthError(error) : null }
     } catch {
