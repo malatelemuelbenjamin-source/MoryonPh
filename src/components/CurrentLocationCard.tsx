@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { Crosshair, MapPin, Navigation2 } from 'lucide-react'
 import { useLocation } from '../lib/location'
 
@@ -10,6 +11,7 @@ function accuracyLabel(acc: number | null): string {
 
 export function CurrentLocationCard() {
   const { status, municipality, barangay, area, accuracy, requestPermission } = useLocation()
+  const navigate = useNavigate()
 
   const granted = status === 'granted'
   const canUse = granted && municipality != null
@@ -63,7 +65,11 @@ export function CurrentLocationCard() {
 
         <div className="mt-4">
           {canUse ? (
-            <button type="button" className="btn-primary w-full">
+            <button
+              type="button"
+              onClick={() => navigate('/transport-map')}
+              className="btn-primary w-full"
+            >
               <Navigation2 size={18} />
               Use My Location
             </button>

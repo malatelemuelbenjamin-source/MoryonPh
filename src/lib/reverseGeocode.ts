@@ -8,7 +8,7 @@ export interface ReverseGeocodeResult {
 
 interface MunicipalityBoundary {
   name: string
-  polygons: number[][][]
+  rings: number[][][]
 }
 
 let boundariesCache: MunicipalityBoundary[] | null = null
@@ -23,30 +23,32 @@ async function loadMunicipalityBoundaries(): Promise<MunicipalityBoundary[]> {
   if (error || !data) return []
 
   boundariesCache = data.map((row) => {
-    const geom = row.geometry_data as { type: string; coordinates: number[][][][] }
-    const polygons: number[][][] = []
+    const geom = row.geometry_data as
+      | { type: 'MultiPolygon'; coordinates: number[][][][] }
+      | { type: 'Polygon'; coordinates: number[][][] }
+    const rings: number[][][] = []
 
     if (geom.type === 'MultiPolygon') {
       for (const poly of geom.coordinates) {
-        polygons.push(poly[0])
+        rings.push(poly[0])
       }
     } else if (geom.type === 'Polygon') {
-      polygons.push(geom.coordinates[0])
+      rings.push(geom.coordinates[0])
     }
 
-    return { name: row.municipality, polygons }
+    return { name: row.municipality, rings }
   })
 
   return boundariesCache
 }
 
-function pointInPolygon(lat: number, lng: number, polygon: number[][]): boolean {
+function pointInRing(lat: number, lng: number, ring: number[][]): boolean {
   let inside = false
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i][0]
-    const yi = polygon[i][1]
-    const xj = polygon[j][0]
-    const yj = polygon[j][1]
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i][0]
+    const yi = ring[i][1]
+    const xj = ring[j][0]
+    const yj = ring[j][1]
 
     const intersect =
       yi > lat !== yj > lat &&
@@ -59,8 +61,8 @@ function pointInPolygon(lat: number, lng: number, polygon: number[][]): boolean 
 export async function detectMunicipality(lat: number, lng: number): Promise<string | null> {
   const boundaries = await loadMunicipalityBoundaries()
   for (const boundary of boundaries) {
-    for (const polygon of boundary.polygons) {
-      if (pointInPolygon(lat, lng, polygon)) {
+    for (const ring of boundary.rings) {
+      if (pointInRing(lat, lng, ring)) {
         return boundary.name
       }
     }
