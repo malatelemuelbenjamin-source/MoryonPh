@@ -1,6 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useAuth } from './auth'
+import { reverseGeocode, detectMunicipality, inMarinduqueBbox } from './reverseGeocode'
 
 export type GpsStatus = 'unknown' | 'prompt' | 'granted' | 'denied' | 'unavailable'
 
@@ -13,6 +14,7 @@ interface Coords {
 interface ReverseGeocode {
   municipality: string | null
   barangay: string | null
+  area: string | null
 }
 
 interface LocationContextValue {
@@ -20,6 +22,7 @@ interface LocationContextValue {
   coords: Coords | null
   municipality: string | null
   barangay: string | null
+  area: string | null
   accuracy: number | null
   requestPermission: () => Promise<void>
   startWatching: () => void
@@ -37,44 +40,11 @@ const MUNICIPALITIES = [
   'Torrijos',
 ]
 
-// Approximate bounding box of Marinduque — used to validate fixes.
-const MARINDUQUE_BBOX = {
-  minLat: 13.2,
-  maxLat: 13.6,
-  minLng: 121.7,
-  maxLng: 122.1,
-}
-
-// Rough municipality centroids for fallback reverse-geocoding (no external API calls).
-const MUNI_CENTROIDS: { name: string; lat: number; lng: number }[] = [
-  { name: 'Boac', lat: 13.4667, lng: 121.85 },
-  { name: 'Buenavista', lat: 13.4667, lng: 121.9333 },
-  { name: 'Gasan', lat: 13.3167, lng: 121.8833 },
-  { name: 'Mogpog', lat: 13.4167, lng: 121.8333 },
-  { name: 'Santa Cruz', lat: 13.5, lng: 121.9167 },
-  { name: 'Torrijos', lat: 13.3, lng: 121.9833 },
-]
-
-function nearestMunicipality(lat: number, lng: number): string {
-  let best = MUNI_CENTROIDS[0]
-  let bestDist = Infinity
-  for (const m of MUNI_CENTROIDS) {
-    const d = (m.lat - lat) ** 2 + (m.lng - lng) ** 2
-    if (d < bestDist) {
-      bestDist = d
-      best = m
-    }
+async function resolveLocation(lat: number, lng: number): Promise<ReverseGeocode> {
+  if (inMarinduqueBbox(lat, lng)) {
+    return reverseGeocode(lat, lng)
   }
-  return best.name
-}
-
-function inMarinduque(lat: number, lng: number): boolean {
-  return (
-    lat >= MARINDUQUE_BBOX.minLat &&
-    lat <= MARINDUQUE_BBOX.maxLat &&
-    lng >= MARINDUQUE_BBOX.minLng &&
-    lng <= MARINDUQUE_BBOX.maxLng
-  )
+  return { municipality: null, barangay: null, area: null }
 }
 
 export function LocationProvider({ children }: { children: ReactNode }) {
@@ -83,8 +53,35 @@ export function LocationProvider({ children }: { children: ReactNode }) {
   const [reverse, setReverse] = useState<ReverseGeocode>({
     municipality: null,
     barangay: null,
+    area: null,
   })
   const [watchId, setWatchId] = useState<number | null>(null)
+  const geocodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const updateLocation = useCallback(async (lat: number, lng: number, accuracy: number) => {
+    setCoords({ lat, lng, accuracy })
+    setStatus('granted')
+    const result = await resolveLocation(lat, lng)
+    setReverse(result)
+  }, [])
+
+  const scheduleGeocode = useCallback(
+    (lat: number, lng: number, accuracy: number) => {
+      setCoords({ lat, lng, accuracy })
+      setStatus('granted')
+
+      if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current)
+      geocodeTimerRef.current = setTimeout(() => {
+        void (async () => {
+          const result = await resolveLocation(lat, lng)
+          if (result.municipality || result.barangay || result.area) {
+            setReverse(result)
+          }
+        })()
+      }, 1500)
+    },
+    [],
+  )
 
   const startWatching = useCallback(() => {
     if (!navigator.geolocation) {
@@ -96,23 +93,16 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     const id = navigator.geolocation.watchPosition(
       (pos) => {
         const { latitude, longitude, accuracy } = pos.coords
-        setCoords({ lat: latitude, lng: longitude, accuracy })
-        setStatus('granted')
-        if (inMarinduque(latitude, longitude)) {
-          setReverse({ municipality: nearestMunicipality(latitude, longitude), barangay: null })
-        } else {
-          setReverse({ municipality: null, barangay: null })
-        }
+        scheduleGeocode(latitude, longitude, accuracy)
       },
       (err) => {
         if (err.code === err.PERMISSION_DENIED) setStatus('denied')
         else if (err.code === err.POSITION_UNAVAILABLE) setStatus('unavailable')
-        // On timeout, keep the last known status/coords so GPS doesn't flip to "off".
       },
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 },
     )
     setWatchId(id)
-  }, [watchId])
+  }, [watchId, scheduleGeocode])
 
   const stopWatching = useCallback(() => {
     if (watchId !== null) {
@@ -121,11 +111,13 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     }
   }, [watchId])
 
-  // Stop watching when the provider unmounts.
   useEffect(() => {
     return () => {
       if (watchId !== null) {
         navigator.geolocation.clearWatch(watchId)
+      }
+      if (geocodeTimerRef.current) {
+        clearTimeout(geocodeTimerRef.current)
       }
     }
   }, [watchId])
@@ -135,18 +127,11 @@ export function LocationProvider({ children }: { children: ReactNode }) {
       setStatus('unavailable')
       return
     }
-    // getCurrentPosition triggers the permission prompt.
+
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      async (pos) => {
         const { latitude, longitude, accuracy } = pos.coords
-        setCoords({ lat: latitude, lng: longitude, accuracy })
-        setStatus('granted')
-        if (inMarinduque(latitude, longitude)) {
-          setReverse({ municipality: nearestMunicipality(latitude, longitude), barangay: null })
-        } else {
-          setReverse({ municipality: null, barangay: null })
-        }
-        // Start continuous tracking after the user grants permission.
+        await updateLocation(latitude, longitude, accuracy)
         if (watchId === null) {
           startWatching()
         }
@@ -157,9 +142,8 @@ export function LocationProvider({ children }: { children: ReactNode }) {
       },
       { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 },
     )
-  }, [watchId, startWatching])
+  }, [watchId, startWatching, updateLocation])
 
-  // Auto-request location when a signed-in user is detected and GPS isn't granted yet.
   const { user } = useAuth()
   useEffect(() => {
     if (user && status === 'prompt') {
@@ -167,7 +151,6 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     }
   }, [user, status, requestPermission])
 
-  // Initial permission probe (does not prompt unless state is "prompt").
   useEffect(() => {
     if (!('permissions' in navigator) || !navigator.geolocation) {
       setStatus('unavailable')
@@ -194,6 +177,7 @@ export function LocationProvider({ children }: { children: ReactNode }) {
       coords,
       municipality: reverse.municipality,
       barangay: reverse.barangay,
+      area: reverse.area,
       accuracy: coords?.accuracy ?? null,
       requestPermission,
       startWatching,
@@ -211,4 +195,4 @@ export function useLocation() {
   return ctx
 }
 
-export { MUNICIPALITIES }
+export { MUNICIPALITIES, detectMunicipality }

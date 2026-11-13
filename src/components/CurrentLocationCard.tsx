@@ -9,10 +9,20 @@ function accuracyLabel(acc: number | null): string {
 }
 
 export function CurrentLocationCard() {
-  const { status, municipality, barangay, accuracy, requestPermission } = useLocation()
+  const { status, municipality, barangay, area, accuracy, requestPermission } = useLocation()
 
   const granted = status === 'granted'
   const canUse = granted && municipality != null
+
+  const locationText = municipality
+    ? `${municipality}, Marinduque`
+    : 'Marinduque, Philippines'
+
+  const barangayText = barangay
+    ? `Barangay ${barangay}`
+    : area
+      ? area
+      : 'Barangay: detecting…'
 
   return (
     <section>
@@ -29,12 +39,10 @@ export function CurrentLocationCard() {
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <MapPin size={16} className="text-terra-500" />
-              <span className="text-lg font-bold text-ocean-900">
-                {municipality ? `${municipality}, Marinduque` : 'Marinduque, Philippines'}
-              </span>
+              <span className="text-lg font-bold text-ocean-900">{locationText}</span>
             </div>
             <div className="mt-0.5 text-sm text-ocean-700">
-              {barangay ? `Barangay: ${barangay}` : 'Barangay: not detected'}
+              {barangayText}
             </div>
             <div className="mt-1 flex items-center gap-2 text-sm">
               <span className="font-semibold text-ocean-800">GPS:</span>
