@@ -59,6 +59,7 @@ import { NewServiceSubmissionPage } from './pages/NewServiceSubmissionPage'
 import { OperatorSubmissionDetailPage } from './pages/OperatorSubmissionDetailPage'
 import { AdminOperatorReviewPage } from './pages/AdminOperatorReviewPage'
 import { AdminDashboardPage } from './pages/AdminDashboardPage'
+import { AdminControlCenterPage } from './pages/AdminControlCenterPage'
 import { AdminAuditLogsPage } from './pages/AdminAuditLogsPage'
 import { AdminUsersPage } from './pages/AdminUsersPage'
 import { DataVerificationDashboardPage } from './pages/DataVerificationDashboardPage'
@@ -141,6 +142,7 @@ export default function App() {
         <Route path="/operator/submission/:id" element={<OperatorSubmissionDetailPage />} />
         <Route path="/operator-portal/admin" element={<AdminOperatorReviewPage />} />
         <Route path="/admin" element={<AdminDashboardPage />} />
+        <Route path="/admin/control-center" element={<AdminControlCenterPage />} />
         <Route path="/admin/audit-logs" element={<AdminAuditLogsPage />} />
         <Route path="/admin/geographic-boundaries" element={<AdminGeographicBoundariesPage />} />
         <Route path="/admin/road-network" element={<AdminRoadNetworkPage />} />
